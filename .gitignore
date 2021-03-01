@@ -78,4 +78,5 @@ vignettes/*.pdf
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,r
 
-# playbook.Rmd
+playbook.Rmd
+playbook.nb.html

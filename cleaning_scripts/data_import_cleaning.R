@@ -8,14 +8,19 @@ library(snakecase)
 world_bank_data <- read_csv("raw_data/World_Bank_Data.csv") %>%
   clean_names()
 
-gci_data <- read_excel("raw_data/Global Competitiveness Dataset.xlsx", sheet = "Data", skip = 3)
+gci_data <- read_excel("raw_data/Global Competitiveness Dataset.xlsx", 
+                       sheet = "Data", skip = 3)
+
+# https://tcdata360.worldbank.org/indicators/gci
+gci_decade <- read_csv("raw_data/gci_historic_data.csv") %>%
+  clean_names()
 
 co2_emissions <- read_csv("raw_data/owid-co2-data.csv")
 
 carbon_footprint <- read_csv("raw_data/NFA 2018 Edition.csv")
 
 
-# Clean World Bank Data ----------------------
+# Clean World Bank Data ---------------------------------------------------
 
 # Replace ".." with NA
 world_bank_data <- world_bank_data %>% 
@@ -34,15 +39,17 @@ world_bank_pvt <- world_bank_data %>%
 world_bank_pvt <- world_bank_pvt %>%
   mutate(series_name = to_snake_case(series_name), 
          series_col_name = str_extract(series_name, "[a-zA-Z0-9]*_[a-zA-Z0-9]*"),
-         series_col_name = case_when(series_name == "co_2_emissions_kg_per_2017_ppp_of_gdp" ~  "co2_emissions_gdp",
-                                     series_name == "co_2_emissions_metric_tons_per_capita" ~  "co2_per_capita",
-                                     TRUE ~ series_col_name)) %>%
+         series_col_name = case_when(
+           series_name == "co_2_emissions_kg_per_2017_ppp_of_gdp" ~  "co2_emissions_gdp",
+           series_name == "co_2_emissions_metric_tons_per_capita" ~  "co2_per_capita",
+           TRUE ~ series_col_name)) %>%
   select(-c(series_name, series_code)) %>%
   pivot_wider(names_from = series_col_name,
               values_from = value)
 
 
-# Extract values for each GCI pillar  ----------------------
+# Extract values for each GCI pillar --------------------------------------
+
 # remove columns with one distinct value
 gci_data <- gci_data %>%
   select(-c(Index, Edition, "Freeze date")) 
@@ -55,7 +62,7 @@ gci_pillars <- gci_data %>%
 record_id_seq <- rep(c(1:100), each = 7, length.out = nrow(gci_pillars))
 
 #add record id
-gci_pillars %>%
+gci_pillars <- gci_pillars %>%
   mutate(record_id = record_id_seq) %>%
   select(record_id, everything()) %>%
   # pivot countries into a single column
@@ -63,4 +70,46 @@ gci_pillars %>%
              names_to = "country") %>% clean_names() %>% 
   # pivot attributes to become a column each 
   pivot_wider(names_from = attribute,
-              values_from = value)
+              values_from = value) %>%
+  # create unique identifier for each record
+  mutate(record_id = to_snake_case(paste(
+    country, series_global_id, record_id))) %>%
+  clean_names()
+
+#make a data dictionary 
+gci_data_dict <- gci_pillars %>%
+  select(series_name, series_units, source_date, note, source, date_description) %>%
+  distinct() %>%
+  filter(!is.na(source)) %>% view()
+
+# combine rows where some values are missing for each record
+gci_pillars <- gci_pillars %>% 
+  group_by(record_id) %>% 
+  summarise_all(~first(na.omit(.))) %>%
+  # remove redundant columns
+  select(c(country, date_description, series_name, sample_average, score, rank))
+
+# create vector of countries of interest to pull from other datasets
+gci_countries <- gci_pillars %>%
+  distinct(country) %>%
+  pull()
+
+# GCI rankings ------------------------------------------------------------
+
+gci_decade <- gci_decade %>%
+  pivot_longer( cols = starts_with("x20"),
+                names_to = "year",
+                names_prefix = "x") %>%
+  filter(!is.na(value))
+
+gci_rankings <- gci_decade %>% 
+  filter(indicator == "Global Competitiveness Index") %>%
+  mutate(year = str_extract(year, "20[0-9][0-9]$")) %>%
+  select(-c(indicator_id, indicator)) %>%
+  pivot_wider(names_from = subindicator_type,
+              values_from = value,
+              names_prefix = "gci_") %>%
+  clean_names()
+
+gci_data %>%
+ filter(str_detect(`Series name`, "GDP")) %>% distinct(`Series name`)

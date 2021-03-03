@@ -1,0 +1,7 @@
+---
+title: "Sustainability and Social Equity Data Exploration"
+author: "Sarina Singh Khaira"
+date: "03/03/2021"
+output: html_document
+---
+

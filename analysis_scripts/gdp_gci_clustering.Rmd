@@ -3,3 +3,206 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+```{r}
+library(tidyverse)
+library(here)
+library(broom)
+library(factoextra)
+```
+
+
+
+The Global Competitiveness Index is an index that looks beyond short term measures and takes into account a full range of factors that determine long term productivity to assess a countries progress.
+
+The index is made up of metrics classified under 12 pillars:
+ * Institutions
+ * Infrastructure
+ * ICT adoption
+ * Macroeconomic stability
+ * Health
+ * Skills
+ * Product market
+ * Labour market
+ * Financial system
+ * Market size
+ * Business dynamism
+ * Innovation capability.
+
+
+"It is possible for an economy to be growing, inclusive and environmentally sustainable—but few economies are on such a trajectory"
+
+"The GCI shows that other countries have very different results on social and environmental factors for the same level of current competitiveness and must begin work today to get on the path to creating not just growing but also low-carbon and inclusive economies."
+
+I will begin by clutsering countries into broad groups based on the GCI. I will focus on the cluster containing the UK, and look at how their social and environmental policies compare to its counterparts. 
+
+So you need to go back and include gci_overall, gdp_growth, measures of sustainability and social equity. First explore these factors. 
+
+```{r}
+ca_join <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
+```
+
+# Deciding what variables to include for cluster analysis 
+- economic growth
+- GCI pillars
+
+
+```{r}
+# plot the different gdp metrics to decide whats important when comparing it to GCI
+ca_join %>%
+  pivot_longer(cols = starts_with("gdp"),
+               names_to = "gdp_metric",
+               values_to = "gdp_value") %>%
+  ggplot() +
+  aes(x = log(gdp_value), y = gci_overall) +
+  geom_point() +
+  facet_wrap(~gdp_metric, scales = "free_x")
+```
+
+I will select gdp per capital growth as a measure as it is not correlated to GCI. 
+
+```{r}
+# investigate the patterns within each pillar 
+ca_join %>%
+    pivot_longer(cols = starts_with("p_"),
+               names_to = "pillar",
+               values_to = "pillar_value") %>%
+  ggplot() +
+  aes(x = gdp_growth_annual, y = pillar_value, colour = country_code == "GBR") +
+  geom_point(alpha = 0.8) +
+  #geom_text(aes(label = country_code), check_overlap = TRUE) +
+  facet_wrap(~pillar) +
+  theme_bw() +
+  scale_colour_viridis_d(option = "viridis", end = .8)+
+  theme(legend.position = "none")
+```
+
+# Data preparation for clustering
+
+```{r}
+## Scale data and drop rows containing NAs
+ca <- ca_join %>%
+  mutate(across(is.numeric, ~as.numeric(scale(.))))%>%
+# rename column that you wish to include in analysis as we select out the columns begining with gdp
+  rename(annual_growth = gdp_growth_annual) %>%
+  drop_na()
+```
+
+
+## Choosing K and validating clustering
+
+
+```{r}
+ca_fviz <- select(ca, -gci_overall, -starts_with("gdp"), -country_code)
+
+fviz_nbclust(ca_fviz, kmeans, method = "silhouette", nstart = 25)
+
+```
+
+```{r}
+fviz_nbclust(ca_fviz, kmeans, method = "gap_stat") 
+```
+
+```{r}
+fviz_nbclust(ca_fviz, kmeans, method = "wss", nstart = 25)
+
+```
+
+Select 3 as the optimal value of k
+
+## Perform Kmeans clustering
+```{r}
+pillars_clust <- kmeans(select(ca, -gci_overall, -starts_with("gdp"), -country_code), centers = 3)
+```
+
+```{r}
+tidy(pillars_clust)
+```
+
+```{r}
+# augment clusters onto data to explore other variables
+ca_to_plot <- augment(pillars_clust, ca) %>%
+    pivot_longer(cols = c(-country_code, -.cluster),
+               names_to = "pillar",
+               values_to = "pillar_value")
+
+
+ca_to_plot %>%
+  ggplot() +
+  aes(x = pillar, y = pillar_value, colour = .cluster) +
+  geom_jitter(alpha = 0.6, width = 0.3) +
+     scale_colour_viridis_d(option = "plasma", end = .9) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_point(data = subset(ca_to_plot, country_code == "GBR"), 
+             aes(x = pillar, 
+                 y =  pillar_value), colour = "black")
+
+
+```
+
+
+```{r}
+ca_to_plot <- augment(pillars_clust, ca) %>%
+    pivot_longer(cols = starts_with("p_"),
+               names_to = "pillar",
+               values_to = "pillar_value")
+
+  ggplot(ca_to_plot) +
+  aes(x = annual_growth, y = pillar_value, colour = .cluster) +
+  geom_point() +
+  geom_point(data = subset(ca_to_plot, country_code == "GBR"), 
+             aes(x = annual_growth, y =  pillar_value), colour = "black") +
+  facet_wrap(~pillar) +
+  scale_colour_viridis_d(option = "viridis", end = .8)
+
+```
+
+
+```{r}
+ca_to_plot <- augment(pillars_clust, ca) %>%
+  pivot_longer(cols = starts_with("gdp"),
+               names_to = "gdp_metric",
+               values_to = "gdp_value")
+ 
+  
+   ggplot(ca_to_plot) +
+  aes(x = (gdp_value), y = gci_overall, colour = .cluster) +
+  geom_point() +
+    geom_point(data = subset(ca_to_plot, country_code == "GBR"), aes(x = (gdp_value), y =  gci_overall), colour = "black") +
+  facet_wrap(~gdp_metric, scales = "free_x") +
+     scale_colour_viridis_d(option = "viridis", end = .8)
+```
+
+Analysis indicates:
+
+Countries seem to be stratified accross all pillars, though there are some anomalies. The data is perhaps not best suited to clustering, however the groupings can be used for comparisons.
+
+The scores within each pillar appear to be correlated, and there appears to be correlation between 
+
+In terms of growth 
+
+
+
+```{r}
+ca_join_plot <- ca_join %>%
+  pivot_longer(cols = starts_with("p_"),
+               names_to = "pillar",
+               values_to = "pillar_value")  
+
+ca_join_plot %>%
+  ggplot() +
+  aes(x = pillar, y = pillar_value, colour = cut(gdp_growth_annual, c(-Inf, 0, 3, 5, Inf))) +
+  geom_jitter(alpha = 0.6, width = 0.3) +
+     scale_colour_viridis_d(option = "plasma", end = .9) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  geom_point(data = subset(ca_join_plot, country_code == "GBR"), 
+             aes(x = pillar, 
+                 y =  pillar_value), colour = "black")
+
+
+
+```
+
+

@@ -5,3 +5,188 @@ date: "03/03/2021"
 output: html_document
 ---
 
+```{r}
+library(here)
+library(tidyverse)
+library(RColorBrewer)
+
+```
+
+
+
+```{r}
+bump_theme <- function() {
+
+  # Colors
+  color.background = "white"
+  color.text = "#22211d"
+
+  # Begin construction of chart
+  theme_bw(base_size=15) +
+
+    # Format background colors
+    theme(panel.background = element_rect(fill=color.background,
+                                          color=color.background)) +
+    theme(plot.background  = element_rect(fill=color.background,
+                                          color=color.background)) +
+    theme(panel.border     = element_rect(color=color.background)) +
+    theme(strip.background = element_rect(fill=color.background,
+                                          color=color.background)) +
+
+    # Format the grid
+    theme(panel.grid.major.y = element_blank()) +
+    theme(panel.grid.minor.y = element_blank()) +
+    theme(axis.ticks       = element_blank()) +
+
+    # Format the legend
+    theme(legend.position = "none") +
+
+    # Format title and axis labels
+    theme(plot.title       = element_text(color=color.text, size=15, face = "bold")) +
+    theme(axis.title.x     = element_blank()) +
+    theme(axis.title.y     = element_blank()) +
+    theme(axis.text.x      = element_text(size=10, vjust=0.5, hjust=0.5,
+                                          color = color.text, face = "bold")) +
+    theme(axis.text.y      = element_blank()) +
+    theme(strip.text       = element_text(face = "bold")) +
+
+    # Plot margins
+    theme(plot.margin = unit(c(0.35, 0.2, 0.3, 0.35), "cm"))
+}
+```
+
+
+```{r}
+gci_rankings <- read_csv(here("clean_data/gci_rank_decade.csv"))
+```
+For the purposes of this exploration I will include the 10 top ranking countries for GCI.
+
+```{r}
+# create vector of countries of interest
+gci_top_10_countries <- gci_rankings %>%
+  filter(year == 2018 & gci_rank <= 10) %>%
+  arrange(gci_rank) %>%
+  pull(country)
+
+# filter countries of interest for rank over time
+gci_rankings_top_10 <- gci_rankings %>%
+  filter(country %in% gci_top_10_countries) %>%
+  mutate(country = fct_relevel(country, gci_top_10_countries),
+         year = as.factor(year)) %>%
+  select(country, year, gci_rank)
+```
+
+
+```{r}
+nb.cols <- 12
+mycolors <- colorRampPalette(brewer.pal(9, "YlGnBu"))(nb.cols)
+
+gci_rankings_top_10 %>%
+  ggplot() +
+  aes(x = year, y = gci_rank, group = country, colour = country) +
+# plot lines for all countries
+  geom_line(alpha = 0.3, size = 2.5, lineend = "round", linejoin = "bevel") +
+# plot UK line to highlight
+  geom_line(data = gci_rankings_top_10 %>% filter(country == "United Kingdom"), 
+            aes(x = year, y = gci_rank), 
+            colour = "#d81159", size = 2, lineend = "round", linejoin = "bevel") +
+#  geom_point(alpha = 0.4, size = 4) +
+  scale_y_reverse(breaks = 1:10) +
+# scale_colour_manual(values = mycolors) +
+  scale_color_viridis_d(direction = -1, option = "plasma") +
+  theme_minimal() +
+  bump_theme() +
+# add labels for 2008 rankings  
+  geom_text(data = gci_rankings_top_10 %>% filter(year == 2008), 
+            aes(label = paste(gci_rank, country), x = 0.5), 
+            hjust = 1, colour = "black", size = 3) +
+# add labels for 2018 rankings  
+  geom_text(data = gci_rankings_top_10 %>% filter(year == 2018), 
+            aes(label = paste(gci_rank, country), x = 11.5), 
+            hjust = 0, colour = "black", size = 3) +
+  scale_x_discrete(breaks = 2008:2018, expand = c(.28, .1)) +
+  ggtitle("Country Rankings of Global Competitiveness Index")
+
+```
+
+# Look at sustainability indicators using World Bank Indicator Data
+
+```{r}
+
+```
+
+
+# Investigate the metrics
+
+```{r}
+soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
+```
+
+```{r}
+soc_eco_env <- soc_eco_env %>% 
+  mutate(col_name = paste(category, indicator, sep = "_")) %>%
+  select(-c(category, indicator)) %>%
+  pivot_wider(names_from = "col_name",
+              values_from = value,
+              values_fn = max)
+
+```
+
+```{r}
+library(fmsb)
+
+gci_top_10_countries <- gci_rankings %>%
+  filter(year == 2018 & gci_rank <= 10) %>%
+  arrange(gci_rank) %>%
+  pull(country_code)
+
+max_min <- data.frame(se_gini_index = c(100, 0), 
+                      se_happiness_score = c(10, 0), 
+                      se_ggi_index = c(1, 0),
+                      env_nat_cap_score = c(100, 0), 
+                      env_renewable_cons_prop = c(1, 0),
+                      econ_gdp_growth_annual = c(15.2, -6.2),
+                      econ_gci_overall = c(100, 0))
+rownames(max_min) <- c("Max", "Min")
+
+
+see_radar <- soc_eco_env %>%
+  filter(country_code %in% gci_top_10_countries) %>%
+  select(country_code, se_gini_index, se_happiness_score, se_ggi_index,
+          env_nat_cap_score, env_renewable_cons_prop,
+         econ_gdp_growth_annual, econ_gci_overall) %>%
+  column_to_rownames(var = "country_code")
+
+see_radar <- rbind(max_min, see_radar)
+
+
+radar_1 <- see_radar[c("Max", "Min", "GBR"), ]
+
+
+radarchart(radar_1, title = "United Kingdom", 
+           vlabels = c("Gini", "GCI", "GDP \n Growth", "Renewable \n Consumption", "NCI", "Gender Gap Index", "Happiness"),
+           )  
+```
+
+```{r}
+library(ggradar)
+
+#scale so that all indexes and percentages are out of 100
+ggrad_data <- soc_eco_env %>%
+  mutate(se_happiness_score = se_happiness_score*10,
+         se_ggi_index = se_ggi_index * 100,
+         env_renewable_cons_prop = env_renewable_cons_prop* 100) %>%
+  select(econ_gci_overall, env_nat_cap_score, se_happiness_score, se_gini_index, 
+         se_ggi_index, env_gsci_score, se_unemployment_pctg, env_renewable_cons_prop, country_code) %>%
+  rename(group = country_code) %>%
+  filter(group == "GBR") %>%
+  ggradar()
+  
+
+
+```
+
+```{r}
+max_min
+```
+

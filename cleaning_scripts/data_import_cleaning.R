@@ -51,11 +51,6 @@ gci_data_clean <- gci_data %>%
     country, series_global_id, record_id))) %>%
   clean_names()
 
-#make a data dictionary 
-gci_data_dict <- gci_data_clean %>%
-  select(series_name, series_units, source_date, note, source, date_description) %>%
-  distinct() %>%
-  filter(!is.na(source))
 
 # combine rows where some values are missing for each record
 gci_data_clean <- gci_data_clean %>% 
@@ -75,44 +70,42 @@ gci_pillars <- gci_data_clean %>%
   filter(str_detect(series_name, "[Pp]illar")| str_detect(series_name, "Index 4.0"))
 
 
-
-# Clean World Bank Data ---------------------------------------------------
+# Gini & Unemployment WB Data ---------------------------------------------------
 
 #https://databank.worldbank.org/source/world-development-indicators
-world_bank_data <- read_csv("raw_data/World_Bank_Data.csv") %>%
+# read in data
+wdi_data <- read_csv("~/Downloads/WDIData.csv") %>%
   clean_names()
 
-# Replace ".." with NA
-world_bank_data <- world_bank_data %>% 
-  na_if(., "..") 
+# convert NAs and remove years before 2009
+wdi_data <- wdi_data %>% 
+  na_if(., "..") %>%
+  select(-c(x1960:x2009))
 
-# Pivot columns into one year column and one for value
-world_bank_pvt <- world_bank_data %>%
+# pivot years into one column and select relevant countries
+wdi_data_clean <- wdi_data %>%
+  mutate(indicator_name = str_to_lower(indicator_name)) %>%
   pivot_longer( cols = starts_with("x20"),
                 names_to = "year",
                 names_prefix = "x") %>%
-  mutate(year = as.numeric(str_extract(year, "20[0-9][0-9]")),
-         value = as.numeric(value))
+  filter(!is.na(value),
+         country_code %in% gci_country_iso) %>%
+  select(country_name, country_code, year, value, indicator_name)
 
-# Pivot wider for each index to have a column
-
-world_bank_pvt <- world_bank_pvt %>%
-  mutate(series_name = to_snake_case(series_name), 
-         series_col_name = str_extract(series_name, "[a-zA-Z0-9]*_[a-zA-Z0-9]*"),
-         series_col_name = case_when(
-           series_name == "co_2_emissions_kg_per_2017_ppp_of_gdp" ~  "co2_emissions_gdp",
-           series_name == "co_2_emissions_metric_tons_per_capita" ~  "co2_per_capita",
-           TRUE ~ series_col_name)) %>%
-  filter(!is.na(series_col_name)) %>%
-  select(-c(series_name, series_code)) %>%
-  pivot_wider(names_from = series_col_name,
+# filter social equity indicators 
+social_equity <- wdi_data_clean %>%
+  filter(str_detect(indicator_name, "gini") | 
+           str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)")) %>%
+  group_by(country_name, country_code, indicator_name) %>%
+  filter(year == max(year)) %>%
+  mutate(indicator_name = case_when(
+    str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)") ~ "unemployment_pctg",
+    str_detect(indicator_name, "gini") ~ "gini_index"
+  )) %>%
+  ungroup() %>%
+  select(-year, -country_name) %>%
+  pivot_wider(names_from = indicator_name,
               values_from = value)
-  
-
-# Select countries of interest
-world_bank_clean <- world_bank_pvt %>%
-  filter(country_code %in% gci_country_iso) %>%
-  rename(country = country_name)
 
 
 
@@ -127,7 +120,10 @@ co2_emissions <- co2_emissions %>%
   rename(country_code = iso_code)
 
 co2_trimmed <- co2_emissions %>%
-  select(country, year, country_code, co2, consumption_co2_per_capita)
+  select(year, country_code, co2, consumption_co2_per_capita) %>%
+  group_by(country_code) %>%
+  filter(year == max(year)) %>%
+  select(-year)
 
 
 # Obtain GDP figures ------------------------------------------------------
@@ -154,7 +150,7 @@ gdp_clean <- gdp_clean %>%
   mutate(series_name = to_snake_case(series_name), 
          series_name = str_remove_all(series_name, "current_"),
          series_name = str_remove_all(series_name, "_international")) %>%
-  select(-series_code) %>%
+  select(-series_code, -country) %>%
   pivot_wider(names_from = series_name,
               values_from = value)
 
@@ -193,9 +189,10 @@ ggi_clean_filter <- ggi_data_clean_full %>%
   filter(country_code %in% gci_country_iso,
          !is.na(ggi_index),
          indicator == "Overall Global Gender Gap Index") %>%
-  select(-ggi_normalized_score, -indicator) %>%
+  select(-ggi_normalized_score, -indicator, -country) %>%
   group_by(country_code) %>%
-  filter(year == max(year))
+  filter(year == max(year)) %>%
+  select(-year)
 
 
 
@@ -222,31 +219,101 @@ gcsi_data <- gcsi_data %>%
   filter(country_code %in% gci_country_iso)
 
 natural_cap <- gcsi_data %>%
-  select(country, country_code, gsci_rank, gsci_score, nat_cap_rank, nat_cap_score)
+  select(country_code, gsci_rank, gsci_score, nat_cap_rank, nat_cap_score)
+
+
+# World Hapiness Report ---------------------------------------------------
+#https://www.kaggle.com/unsdsn/world-happiness
+happiness <- read_csv("raw_data/world_happiness_2019.csv") %>%
+  clean_names()
+
+happiness <- happiness %>%
+  rename(country = country_or_region,
+         happiness_score = score,
+         happiness_rank = overall_rank) %>%
+  mutate(country_code = countryname(country, destination = "iso3c")) %>%
+  select(country_code, happiness_score, happiness_rank)
+
+
+
+# Renewable Energy Data ---------------------------------------------------
+# https://www.bp.com/en/global/corporate/energy-economics/statistical-review-of-world-energy.html
+
+pri_energy_cons <- read_excel("raw_data/world_energy_bp.xlsx",
+                         sheet = "Primary Energy - Cons by fuel", 
+                         skip = 2) %>%
+  clean_names()
+
+#remove columns with 2018 data 
+pri_energy_cons <- pri_energy_cons %>%
+  rename(country = "exajoules") %>%
+  select(-c(2:8)) %>%
+  rename_with(~str_remove_all(., "_[0-9]*")) %>%
+  na.omit()
+
+# add column which has proportion of renewables of total consumption
+pri_energy_cons <- pri_energy_cons %>%
+  mutate(prop_renewables = renewables/total,
+         country_code = countryname(country, destination = "iso3c")) %>%
+  select(-c(oil, naturalgas, coal, nuclearenergy, hydroelectric))
+
+######## extract renewable power generation
+renewable_power <- read_excel("raw_data/world_energy_bp.xlsx",
+                              sheet = "Renewables Power - Twh", 
+                              skip = 2) %>%
+  clean_names()
+
+renewable_power <- renewable_power %>%
+  select(terawatt_hours, x2019_56, x2019_57, x2008_18) %>%
+  rename(country = terawatt_hours, 
+         ren_gen_twh_19 = x2019_56,
+         ren_gen_growth_19 = x2019_57,
+         rene_gen_growth_08_18 = x2008_18) %>%
+  na.omit()
+
+# Join energy data together
+renewables_data <- renewable_power %>%
+  left_join(pri_energy_cons, by = "country") %>%
+  rename(total_consumption = total,
+         renewable_cons_prop = prop_renewables,
+         renewable_cons_exj = renewables) %>%
+  select(-country) %>%
+  na_if(., "n/a") %>%
+  mutate(across(-country_code, as.numeric))
 
 # Join data sets for cluster analysis -------------------------------------
 # For cluster analysis we need data from 2018 for each pillar and gdp
 
 ca_gci_pillars <- gci_pillars %>%
-  filter(date_description == "2018 edition") %>%
+  ungroup() %>%
+  filter(date_description == "2018 edition",
+         !is.na(country_code)) %>%
   mutate(series_name = str_remove(series_name, "illar "),
          series_name = str_extract(series_name, "P[0-9]*: [a-zA-Z0-9]*"),
          series_name = to_snake_case(series_name),
-         series_name = replace_na(series_name, "gci_overall")) %>%
-  select(country_code, series_name, score) %>%
+         series_name = replace_na(series_name, "gci_overall")) %>% 
+  select(country_code, series_name, score) %>% 
   pivot_wider(names_from = series_name,
-              values_from = score)
+              values_from = score) %>%
+  mutate(across(-c(country_code), as.numeric))
+
 
 
 ca_gdp <- gdp_clean %>%
   filter(year == "2018") %>%
-  select(-c(year, country))
+  select(-c(year))
 
 
 ca_join <- ca_gci_pillars %>%
   inner_join(ca_gdp) %>%
   inner_join(gdp_avg_growth) %>%
-  mutate(across(-country_code, as.numeric))
+  inner_join(social_equity) %>%
+  left_join(happiness) %>%
+  left_join(ggi_clean_filter) %>%
+  left_join(co2_trimmed) %>%
+  left_join(renewables_data) %>%
+  left_join(natural_cap) 
+
 
 # Check for NAs  ----------------------------------------------------------
 ca_join %>%
@@ -258,6 +325,40 @@ ca_join %>%
 write_csv(ca_join, "clean_data/gdp_gci_clustering.csv")
 
 
+
+
+# Join Evnrionmental & Social & Economic Data -----------------------------
+# note: could you make a function for this? join data frames, add a column for where they're from and then pivot?
+social_equity_data <- social_equity %>%
+  full_join(happiness) %>%
+  full_join(ggi_clean_filter) %>%
+  mutate(category = "social_equity") %>%
+  pivot_longer(cols = is.numeric, 
+               names_to = "indicator",
+               values_to = "value")
+
+environment_data <- co2_trimmed %>%
+  full_join(renewables_data) %>%
+  full_join(natural_cap) %>%
+  mutate(category = "environment") %>%
+  pivot_longer(cols = is.numeric, 
+               names_to = "indicator",
+               values_to = "value")
+
+economic_data <-  ca_gci_pillars %>%
+  select(country_code, gci_overall) %>%
+  full_join(ca_gdp) %>%
+  mutate(category = "economy") %>%
+  pivot_longer(cols = is.numeric, 
+               names_to = "indicator",
+               values_to = "value")
+
+
+socio_econo_enviro <- social_equity_data %>%
+  full_join(environment_data) %>%
+  full_join(economic_data)
+
+write_csv(socio_econo_enviro, "clean_data/socio_econo_enviro.csv")
 
 # GCI rankings for bump plot-----------------------------------------------
 

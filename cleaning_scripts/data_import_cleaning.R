@@ -121,6 +121,7 @@ co2_emissions <- co2_emissions %>%
 
 co2_trimmed <- co2_emissions %>%
   select(year, country_code, co2, consumption_co2_per_capita) %>%
+  na.omit() %>%
   group_by(country_code) %>%
   filter(year == max(year)) %>%
   select(-year)
@@ -303,7 +304,7 @@ ca_gdp <- gdp_clean %>%
   filter(year == "2018") %>%
   select(-c(year))
 
-
+# code your data sets: c for capita (/economy), s for social equity and e for environmental sustainability
 ca_join <- ca_gci_pillars %>%
   inner_join(ca_gdp) %>%
   inner_join(gdp_avg_growth) %>%
@@ -317,7 +318,7 @@ ca_join <- ca_gci_pillars %>%
 
 # Check for NAs  ----------------------------------------------------------
 ca_join %>%
-  filter(is.na(ca_join))
+  filter(is.na(.))
 
 
 # Write to CSV ------------------------------------------------------------
@@ -328,35 +329,45 @@ write_csv(ca_join, "clean_data/gdp_gci_clustering.csv")
 
 
 # Join Evnrionmental & Social & Economic Data -----------------------------
-# note: could you make a function for this? join data frames, add a column for where they're from and then pivot?
-social_equity_data <- social_equity %>%
-  full_join(happiness) %>%
-  full_join(ggi_clean_filter) %>%
-  mutate(category = "social_equity") %>%
-  pivot_longer(cols = is.numeric, 
-               names_to = "indicator",
-               values_to = "value")
 
-environment_data <- co2_trimmed %>%
-  full_join(renewables_data) %>%
-  full_join(natural_cap) %>%
-  mutate(category = "environment") %>%
-  pivot_longer(cols = is.numeric, 
-               names_to = "indicator",
-               values_to = "value")
+# note: how would you do this without dummmy data? 
 
-economic_data <-  ca_gci_pillars %>%
-  select(country_code, gci_overall) %>%
-  full_join(ca_gdp) %>%
-  mutate(category = "economy") %>%
-  pivot_longer(cols = is.numeric, 
-               names_to = "indicator",
-               values_to = "value")
+dummy_data <- tibble(
+  country_code = c(NA)
+)
+
+# define function which takes the table, pivots it and adds a column with the category
+pivot_joiner <- function(data1, data2, data3 = dummy_data, category_name){
+  
+  data1 %>% 
+    full_join(data2) %>%
+    full_join(data3) %>%
+    mutate(category = category_name) %>%
+    pivot_longer(cols = is.numeric,
+                 names_to = "indicator",
+                 values_to = "value")
+  
+}
+
+social_equity_data <- pivot_joiner(social_equity, 
+                                        happiness, 
+                                        ggi_clean_filter, 
+                                        "se")
+
+environment_data <- pivot_joiner(co2_trimmed,
+                                 renewables_data,
+                                 natural_cap,
+                                 "env")
+
+economic_data <- pivot_joiner((ca_gci_pillars %>% select(country_code, gci_overall)), 
+                              ca_gdp, 
+                              category_name = "econ")
 
 
 socio_econo_enviro <- social_equity_data %>%
   full_join(environment_data) %>%
-  full_join(economic_data)
+  full_join(economic_data) %>%
+  na.omit()
 
 write_csv(socio_econo_enviro, "clean_data/socio_econo_enviro.csv")
 

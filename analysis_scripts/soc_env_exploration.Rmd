@@ -9,6 +9,9 @@ output: html_document
 library(here)
 library(tidyverse)
 library(RColorBrewer)
+library(countrycode)
+library(snakecase)
+library(extrafont)
 
 ```
 
@@ -19,7 +22,7 @@ bump_theme <- function() {
 
   # Colors
   color.background = "white"
-  color.text = "#22211d"
+  color.text = "grey40"
 
   # Begin construction of chart
   theme_bw(base_size=15) +
@@ -99,21 +102,137 @@ gci_rankings_top_10 %>%
 # add labels for 2008 rankings  
   geom_text(data = gci_rankings_top_10 %>% filter(year == 2008), 
             aes(label = paste(gci_rank, country), x = 0.5), 
-            hjust = 1, colour = "black", size = 3) +
+            hjust = 1, colour = "grey40", fontface = "bold", size = 3) +
 # add labels for 2018 rankings  
   geom_text(data = gci_rankings_top_10 %>% filter(year == 2018), 
             aes(label = paste(gci_rank, country), x = 11.5), 
-            hjust = 0, colour = "black", size = 3) +
+            hjust = 0, colour = "grey40", fontface = "bold", size = 3) +
   scale_x_discrete(breaks = 2008:2018, expand = c(.28, .1)) +
   ggtitle("Country Rankings of Global Competitiveness Index")
 
 ```
 
-# Look at sustainability indicators using World Bank Indicator Data
+
+# Heatmap of top countries and each pillar ranking
 
 ```{r}
 
+gci_soc_env <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
 ```
+
+```{r}
+
+gci_top_10_countries <- gci_rankings %>%
+  filter(year == 2018 & gci_rank <= 10) %>%
+  arrange(gci_rank) %>%
+  pull(country_code)
+
+pillars <- gci_soc_env %>%
+  select(country_code, starts_with("p_"), gci_overall) %>%
+  filter(country_code %in% gci_top_10_countries) %>%
+  mutate(country_name = countrycode(country_code, origin = "iso3c", destination = "country.name")) %>%
+   mutate(country_name = fct_reorder(country_name, gci_overall),
+          country_name = str_remove(country_name, " SAR China")) %>%
+  select(-gci_overall) %>%
+  pivot_longer(cols = -c(country_name, country_code),
+               names_to = "pillar",
+               values_to = "score") %>%
+  mutate(pillar_labs = (str_extract(pillar, "[a-z]*$")),
+         pillar_labs = to_sentence_case(pillar_labs),
+         pillar_labs = recode(pillar_labs,
+           "Ict" = "ICT adoption",
+           "Macroeconomic" = "Macroeconomic\nstability", 
+           "Product" = "Product market", 
+           "Labour" = "Labour market", 
+           "Financial" = "Financial system", 
+           "Market" = "Market size", 
+           "Business" = "Business dynamism", 
+           "Innovation" = "Innovation", 
+           .default = pillar_labs
+         ))
+
+
+```
+
+
+
+```{r}
+# function to replace the pillar names so that they are sequential for plot
+for (x in 1:9){
+  
+  string <- paste("_", x, "_", sep = "")
+  
+  string_replace <- paste("_0", x, "_", sep = "")
+  
+  pillars <-  pillars %>%
+  mutate(pillar = str_replace_all(pillar, string, string_replace))
+  
+}
+
+
+pillar_order <- pillars %>%
+  arrange(pillars) %>%
+  distinct(pillar_labs) %>%
+  pull(pillar_labs)
+
+colours <- c(rep("#e04059", 4), rep("#eb701c", 2), rep("#4f529c", 4), rep("#38a380", 2))
+
+second_x_axis = tibble(
+  x_posi = c(0.5, 4.5, 6.5, 10.5),
+  pillar_cat = c("Enabling\nEnvironment", "Human\nCapital", "\n Markets", "Innovation\nEcosystem")
+)
+
+
+pillars %>%
+  mutate(pillar_labs = fct_relevel(pillar_labs, pillar_order)) %>%
+  ggplot() +
+  geom_tile(aes(x = pillar_labs, y = country_name, fill = score),
+            colour = "white", size = 1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1, 
+                                   vjust = 0.5, 
+                                   colour = colours, 
+                                   face = "bold"),
+        axis.text.y = element_text(face = "bold"),
+        axis.ticks = element_blank(),
+        legend.title = element_text(size = 10, face = "bold", color = "grey40"),
+        legend.text = element_text(face = "bold", color = "grey40")) +
+  coord_equal() +
+  scale_fill_distiller(palette = "Purples",  name = "Score", direction = 1,
+                       guide = guide_colourbar(barwidth = 0.9, ticks = F,
+                                               label.position = "left",
+                                               #title.position = "bottom",
+                                               title.hjust = 1,
+                                               title.vjust = 1.5)) +
+  labs(x = NULL, 
+       y = NULL) +
+# #  geom_text(data = second_x_axis, 
+#             aes(x = x_posi, y = 10, label = pillar_cat), 
+#             vjust = -0.8,
+#             size = 2.5,
+#             colour = colours[c(1, 5, 7, 11)],
+#             fontface = "bold",
+#             hjust = 0) +
+#     theme(plot.margin = unit(c(1, 0.2, 0.3, 0.35), "cm")) +
+#  expand_limits(y = 13, x = 13) +
+  annotate(
+    geom = "line", x = c(0.6, 4.4), y = 0.3, col = colours[1], size = 2.5
+  ) +
+  annotate(
+    geom = "line", x = c(4.6, 6.4), y = 0.3, col = colours[5], size = 2.5
+  ) +
+  annotate(
+    geom = "line", x = c(6.6, 10.4), y = 0.3, col = colours[8], size = 2.5
+  ) +
+  annotate(
+    geom = "line", x = c(10.6, 12.4), y = 0.3, col = colours[11], size = 2.5
+  )
+
+
+```
+
+## Idea for future: try a sunburst with the inner circle being the 4 categories, each pillar being the next bit, and then the individual scores as the 3rd layer
 
 
 # Investigate the metrics
@@ -135,10 +254,6 @@ soc_eco_env <- soc_eco_env %>%
 ```{r}
 library(fmsb)
 
-gci_top_10_countries <- gci_rankings %>%
-  filter(year == 2018 & gci_rank <= 10) %>%
-  arrange(gci_rank) %>%
-  pull(country_code)
 
 max_min <- data.frame(se_gini_index = c(100, 0), 
                       se_happiness_score = c(10, 0), 

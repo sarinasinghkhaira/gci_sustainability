@@ -76,15 +76,108 @@ ca_join %>%
   theme(legend.position = "none")
 ```
 
+```{r}
+library(broom)
+library(corrr)
+
+ca_join %>%
+  select(-c(country_code, 
+            starts_with("p_"), 
+            ends_with("rank"), 
+            gdp_per_capita_growth_annual, 
+            gdp_growth_annual,
+            total_consumption,
+            gdp_ppp)) %>%
+  correlate() %>%
+  rearrange() %>%
+  shave() %>%
+  rplot(shape = 15) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+Things that stand out from the correlation plot:
+
+* countries with higher gdp have higher emissions
+* stronger correlation of gdp to gci than gsci
+* gdp correlated to happiness score
+* gdp correlated slightly with gender gap index
+* gdp is negatively correlated to gini - high income countries = poor distributino wealth
+* some cor between renewable consumption as a proportion and ggi_index
+* slight correlation between renewable energy growth and gdp annual growth
+* growth per annum 08-18 is not correlated to growth in 19 - indicating there are countries which are either ramping up or ramping down renewables recently
+
+```{r}
+ca_join %>%
+  ggplot +
+  aes(x = ggi_index, y = renewable_cons_prop) +
+  geom_point() +
+  geom_text(aes(label = country_code))
+```
+
+```{r}
+ca_join %>%
+  ggplot +
+  aes(x = rene_gen_growth_08_18, y = (ren_gen_growth_19)) +
+  geom_point(aes(colour = country_code == "GBR")) +
+  geom_text(aes(label = country_code), check_overlap = TRUE) +
+  geom_abline(intercept = 0, slope = 1) +
+  ylim(c(0, 1.1)) +
+  theme(legend.position = "none")
+
+```
+Pakistan and Saudi reduced growth in renewables in 19
+Venezuela and Vietnam are ramping up 
+
+
+```{r}
+ca_join %>%
+  ggplot +
+  aes(x = gci_overall, y = gsci_score) +
+  geom_point() +
+  geom_text(aes(label = country_code)) +
+  geom_abline(intercept = 0, slope = 1, col = "red")
+
+```
+
+```{r}
+ca_join %>%
+    pivot_longer(cols = starts_with("gsci_"),
+               names_to = "pillar",
+               values_to = "pillar_value") %>%
+  ggplot() +
+  aes(x = gdp_per_capita_ppp, y = pillar_value, colour = country_code == "GBR") +
+  geom_point(alpha = 0.8) +
+  #geom_text(aes(label = country_code), check_overlap = TRUE) +
+  facet_wrap(~pillar) +
+  theme_bw() +
+  scale_colour_viridis_d(option = "viridis", end = .8)+
+  theme(legend.position = "none")
+  
+```
+
+
+
+
+
 # Data preparation for clustering
+
+```{r}
+ca_join %>%
+  is.na() %>%
+  colSums()
+
+ca_join %>%
+  filter(is.na(gini_index))
+```
+
+
 
 ```{r}
 ## Scale data and drop rows containing NAs
 ca <- ca_join %>%
-  mutate(across(is.numeric, ~as.numeric(scale(.))))%>%
-# rename column that you wish to include in analysis as we select out the columns begining with gdp
-  rename(annual_growth = gdp_growth_annual) %>% 
-  drop_na()
+  mutate(across(is.numeric, ~as.numeric(scale(.))))
+
+
 ```
 
 
@@ -92,10 +185,11 @@ ca <- ca_join %>%
 
 
 ```{r}
-ca_fviz <- select(ca, -starts_with("gdp"), -country_code, -starts_with("p_"))
+ca <- ca %>%
+  drop_na(c(starts_with("gsci"), gdp_growth_decade)) %>%
+  rename(overall_gsci = gsci_score)
 
-
-ca_fviz <- select(ca, gci_overall, annual_growth, gini_index, ggi_index, renewable_cons_prop, nat_cap_score)
+ca_fviz <- select(ca, starts_with("gsci"))# , gdp_growth_decade) 
 
 fviz_nbclust(ca_fviz, kmeans, method = "silhouette", nstart = 25)
 
@@ -114,7 +208,7 @@ Select 3 as the optimal value of k
 
 ## Perform Kmeans clustering
 ```{r}
-pillars_clust <- kmeansselect(ca, gci_overall, annual_growth, gini_index, ggi_index, renewable_cons_prop, nat_cap_score), centers = 3)
+pillars_clust <- kmeans(ca_fviz, centers = 2)
 ```
 
 ```{r}
@@ -123,43 +217,180 @@ tidy(pillars_clust)
 
 ```{r}
 # augment clusters onto data to explore other variables
-ca_to_plot <- augment(pillars_clust, ca) %>%
-    pivot_longer(cols = c(-country_code, -.cluster),
-               names_to = "pillar",
-               values_to = "pillar_value")
+ca_to_plot <- augment(pillars_clust, ca)
 
 
 ca_to_plot %>%
   ggplot() +
-  aes(x = pillar, y = pillar_value, colour = .cluster) +
+  aes(y = overall_gsci, x = gdp_growth_decade, colour = .cluster) +
   geom_jitter(alpha = 0.6, width = 0.3) +
      scale_colour_viridis_d(option = "plasma", end = .9) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
-  geom_point(data = subset(ca_to_plot, country_code == "GBR"), 
-             aes(x = pillar, 
-                 y =  pillar_value), colour = "black")
+  geom_text(aes(label = country_code), check_overlap = T)
 
 
 ```
 
 
 ```{r}
+library(rworldmap)
+library(rnaturalearth)
+library(sf)
+library(broom)
+
+# obtain a table of countries and the clusters
+ca_clusters <- ca_to_plot %>%
+  select(country_code, .cluster) %>%
+  distinct()
+
+# obtain a sf object of the world
+world <- ne_countries(scale = "small", returnclass = "sf")
+
+# join clusters to world map
+cluster_map <- world %>%
+  full_join(ca_clusters, by = c("brk_a3" = "country_code"))
+
+#plot clusters on world map
+cluster_map %>%
+ggplot() +
+  geom_sf(aes(fill = cluster), size = 0.1, col = "black") +
+  theme_void()+
+  # change the projections mercator: 3395; robinson: 54030
+  # find them all here: https://semba-blog.netlify.app/01/26/2020/world-map-and-map-projections/
+  coord_sf(crs = 54030) +  
+  scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster", breaks = c(1,2)) +
+  theme(legend.position = c(0.2,0.4),
+        legend.title = element_text(size = 8, face = "bold"),
+          legend.key.size = unit(0.5, "cm"))
+
+
+```
+
+
+
+
+
+```{r}
 ca_to_plot <- augment(pillars_clust, ca) %>%
-    pivot_longer(cols = starts_with("p_"),
+    pivot_longer(cols = c(starts_with("gsci_"), gdp_per_capita_us),
                names_to = "pillar",
                values_to = "pillar_value")
 
   ggplot(ca_to_plot) +
-  aes(x = annual_growth, y = pillar_value, colour = .cluster) +
+  aes(x = overall_gsci, y = pillar_value, colour = .cluster) +
   geom_point() +
-  geom_point(data = subset(ca_to_plot, country_code == "GBR"), 
-             aes(x = annual_growth, y =  pillar_value), colour = "black") +
   facet_wrap(~pillar) +
   scale_colour_viridis_d(option = "viridis", end = .8)
 
+
+```
+Violin plot!
+
+```{r}
+
+# https://stackoverflow.com/questions/35717353/split-violin-plot-with-ggplot2
+
+GeomSplitViolin <- ggproto(
+  "GeomSplitViolin", 
+  GeomViolin, 
+  draw_group = function(self, data, ..., draw_quantiles = NULL) {
+    data <- transform(data, 
+                      xminv = x - violinwidth * (x - xmin), 
+                      xmaxv = x + violinwidth * (xmax - x))
+    grp <- data[1,'group']
+    newdata <- plyr::arrange(
+      transform(data, x = if(grp%%2==1) xminv else xmaxv), 
+      if(grp%%2==1) y else -y
+    )
+    newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+    newdata[c(1,nrow(newdata)-1,nrow(newdata)), 'x'] <- round(newdata[1, 'x']) 
+    if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+      stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
+      quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+      aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+      aesthetics$alpha <- rep(1, nrow(quantiles))
+      both <- cbind(quantiles, aesthetics)
+      quantile_grob <- GeomPath$draw_panel(both, ...)
+      ggplot2:::ggname("geom_split_violin", 
+                       grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+    } else {
+      ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+    }
+  }
+)
+
+geom_split_violin <- function (mapping = NULL, 
+                               data = NULL, 
+                               stat = "ydensity", 
+                               position = "identity", ..., 
+                               draw_quantiles = NULL, 
+                               trim = TRUE, 
+                               scale = "area", 
+                               na.rm = FALSE, 
+                               show.legend = NA, 
+                               inherit.aes = TRUE) {
+  layer(data = data, 
+        mapping = mapping, 
+        stat = stat, 
+        geom = GeomSplitViolin, 
+        position = position, 
+        show.legend = show.legend, 
+        inherit.aes = inherit.aes, 
+        params = list(trim = trim, 
+                      scale = scale, 
+                      draw_quantiles = draw_quantiles, 
+                      na.rm = na.rm, ...)
+        )
+}
 ```
 
+
+```{r}
+
+ca_join %>%
+  left_join(ca_clusters, by = "country_code") %>%
+  pivot_longer(cols = c(starts_with("gsci_")),
+               names_to = "pillar",
+               values_to = "pillar_value") %>%
+  arrange(.cluster) %>%
+  ggplot() +
+  aes(x = pillar, y = pillar_value, fill = .cluster) +
+  geom_split_violin(alpha = 0.9) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("#E04059", "#38A380"))
+```
+
+```{r}
+ca_join %>%
+  left_join(ca_clusters, by = "country_code") %>%
+  ggplot() +
+  aes(x = .cluster, y = gdp_per_capita_ppp, fill = .cluster) +
+  geom_violin(alpha = 0.9) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("#E04059", "#38A380"))
+```
+
+
+
+
+
+The two groups of countries are as such:
+
+Cluster 1 low governance and intellectual capital and social capital scores.
+
+Cluster 2 higher governance, intellectual capital and social capital. 
+
+Natural capital and resource intensity showed little difference between the two
+
+
+
+
+Results of the clustering:
+
+Two groups are
 
 ```{r}
 ca_to_plot <- augment(pillars_clust, ca) %>%

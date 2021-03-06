@@ -155,6 +155,9 @@ gdp_clean <- gdp_clean %>%
   pivot_wider(names_from = series_name,
               values_from = value)
 
+# export to CSV
+write_csv(gdp_clean, "clean_data/gdp.csv")
+
 gdp_avg_growth <- gdp_clean %>%
   filter(year <= 2018) %>%
   group_by(country_code) %>%
@@ -220,7 +223,11 @@ gcsi_data <- gcsi_data %>%
   filter(country_code %in% gci_country_iso)
 
 natural_cap <- gcsi_data %>%
-  select(country_code, gsci_rank, gsci_score, nat_cap_rank, nat_cap_score)
+  select(country_code, gsci_score, nat_cap_score)
+
+gsci_all <- gcsi_data %>%
+  select(-ends_with("rank"), -country) %>%
+  rename_with(.cols = -c(gsci_score, country_code), .fn = ~ paste0("gsci_", .x))
 
 
 # World Hapiness Report ---------------------------------------------------
@@ -313,12 +320,13 @@ ca_join <- ca_gci_pillars %>%
   left_join(ggi_clean_filter) %>%
   left_join(co2_trimmed) %>%
   left_join(renewables_data) %>%
-  left_join(natural_cap) 
+  left_join(gsci_all) 
 
 
 # Check for NAs  ----------------------------------------------------------
 ca_join %>%
-  filter(is.na(.))
+  is.na() %>%
+  colSums()
 
 
 # Write to CSV ------------------------------------------------------------
@@ -388,13 +396,26 @@ gci_decade <- gci_decade %>%
 
 gci_rankings <- gci_decade %>%
   filter(indicator == "Global Competitiveness Index") %>%
-  mutate(year = str_extract(year, "20[0-9][0-9]$")) %>%
+  mutate(year = str_extract(year, "^20[0-9][0-9]")) %>%
   select(-c(indicator_id, indicator)) %>%
   pivot_wider(names_from = subindicator_type,
               values_from = value,
               names_prefix = "gci_") %>%
   clean_names()
 
+# obtain 2018 rankings from gci dataset
+
+gci_rankings_2018 <- ca_gci_pillars %>%
+  select(country_code, gci_overall) %>%
+  mutate(gci_rank = rank(-gci_overall),
+         year = "2018") %>%
+  rename(gci_value = gci_overall) %>%
+  left_join((gci_rankings %>% select(country_code, country)), by = "country_code") %>%
+  distinct()
+
+# appendd gci_rankings from 2018
+gci_rankings <- gci_rankings_2018 %>%
+  bind_rows(gci_rankings)
 
 
 write_csv(gci_rankings, "clean_data/gci_rank_decade.csv")

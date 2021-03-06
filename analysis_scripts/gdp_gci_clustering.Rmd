@@ -58,7 +58,7 @@ ca_join %>%
   facet_wrap(~gdp_metric, scales = "free_x")
 ```
 
-I will select gdp per capital growth as a measure as it is not correlated to GCI. 
+I will select gdp per capital growth as a measure as it is not correlated to GCI, to investigate the groups. 
 
 ```{r}
 # investigate the patterns within each pillar 
@@ -83,7 +83,7 @@ ca_join %>%
 ca <- ca_join %>%
   mutate(across(is.numeric, ~as.numeric(scale(.))))%>%
 # rename column that you wish to include in analysis as we select out the columns begining with gdp
-  rename(annual_growth = gdp_growth_annual) %>%
+  rename(annual_growth = gdp_growth_annual) %>% 
   drop_na()
 ```
 
@@ -92,7 +92,10 @@ ca <- ca_join %>%
 
 
 ```{r}
-ca_fviz <- select(ca, -gci_overall, -starts_with("gdp"), -country_code)
+ca_fviz <- select(ca, -starts_with("gdp"), -country_code, -starts_with("p_"))
+
+
+ca_fviz <- select(ca, gci_overall, annual_growth, gini_index, ggi_index, renewable_cons_prop, nat_cap_score)
 
 fviz_nbclust(ca_fviz, kmeans, method = "silhouette", nstart = 25)
 
@@ -111,7 +114,7 @@ Select 3 as the optimal value of k
 
 ## Perform Kmeans clustering
 ```{r}
-pillars_clust <- kmeans(select(ca, -gci_overall, -starts_with("gdp"), -country_code), centers = 3)
+pillars_clust <- kmeansselect(ca, gci_overall, annual_growth, gini_index, ggi_index, renewable_cons_prop, nat_cap_score), centers = 3)
 ```
 
 ```{r}

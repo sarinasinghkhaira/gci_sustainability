@@ -419,3 +419,26 @@ gci_rankings <- gci_rankings_2018 %>%
 
 
 write_csv(gci_rankings, "clean_data/gci_rank_decade.csv")
+
+
+
+# Determine countries of interest -----------------------------------------
+
+# select top countries for both GCI and GSCI
+top_countries <- socio_econo_enviro %>%
+  select(country_code, gsci_score, gci_overall) %>%
+  pivot_longer(cols = (-country_code), 
+               names_to = "index", 
+               values_to = "score") %>%
+  group_by(index) %>%
+  # number of top countries
+  slice_max(score, n = 4) %>%
+  select(-score)
+
+# add UK to top countries
+uk <- c("GBR", "uk")
+names(uk) <- names(top_countries)
+top_countries <- bind_rows(top_countries, uk)
+
+# write to clean data
+write_csv(top_countries, "clean_data/top_countries.csv")

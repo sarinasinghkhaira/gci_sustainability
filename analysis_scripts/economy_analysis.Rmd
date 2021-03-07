@@ -271,68 +271,85 @@ pillars %>%
 
 ## Idea for future: try a sunburst with the inner circle being the 4 categories, each pillar being the next bit, and then the individual scores as the 3rd layer
 
-# Results of clustering analysis
-
-```{r}
-
-```
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-Plot of GDP growth?
+# Plot of GDP growth
 
 ```{r}
 gdp <- read_csv(here("clean_data/gdp.csv"))
+
+# vector of countries of interest
+top_countries <- read_csv(here("clean_data/top_countries.csv"))
 ```
+
 ```{r}
-gdp %>%
-  filter(country_code %in% gci_top_10_countries) %>%
-  select(-c(gdp_ppp, gdp_us, gdp_per_capita_growth_annual)) %>%
+# extract countries of interest from gdp data
+gdp_top_countries <- top_countries %>%
+  left_join(gdp, by = "country_code") %>%
+  drop_na()
+```
+
+
+```{r}
+# select variables of interest
+gdp_tc_plot <- gdp_top_countries %>%
+  select(-c(gdp_ppp, gdp_us, gdp_growth_annual, gdp_per_capita_ppp, gdp_per_capita_us)) %>%
+  filter(year > 2010) %>%
+  mutate(year = as.factor(year),
+         country_name = countrycode(country_code, "iso3c", "country.name")) %>%
   pivot_longer(cols = starts_with("gdp"),
-               names_to = "gdp_measure") %>%
-ggplot() +
+               names_to = "gdp_measure") 
+
+# plot gdp growth per capita
+gdp_tc_plot %>%
+  filter(index != "uk") %>%
+  ggplot() +
   aes(x = year, 
       y = value,
-      colour = country_code) +
-  geom_line() +
-  facet_wrap(~gdp_measure, scales = "free_y")
+      group = country_code,
+      colour = index) +
+  # set an abline at y = 0
+  geom_abline(slope = 0, intercept = 0, col = "orange", alpha = 0.8) +
+  geom_line(alpha = 0.5, size = 1.2) +
+#  geom_point(aes(shape = index)) +
+ facet_wrap(~country_name) +
+  # add the UK without alpha
+  geom_line(data = gdp_tc_plot %>% filter(index == "uk"),
+            aes(x = year,
+                y = value), colour = "#E04059", size = 1.2) +
+  # geom_text(data = gdp_tc_plot %>% filter(index == "uk"),
+  #           aes(x = 9,
+  #               y = 1.2,
+  #               label = country_code),
+  #           colour = "#E04059") + 
+  scale_colour_manual(values = c("#EB701C", "#38A380"), 
+                      labels = c("Global Competitiveness Index (WEF)",
+                                 "Global Sustainable Competitiveness Index"),
+                      name = "Ranking Index") +
+  labs(x = "Year", 
+       y = "GDP per capital growth (%)", 
+       title = "Annual growth in GDP per capita",
+       subtitle = "Countries ranking in the top Global Competitiveness Ranking") +
+   theme_bw () +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1), 
+        # format facet header rectangle
+        strip.background = element_rect(
+          color="black", 
+          fill="white", 
+          linetype="blank"),
+        # format facet header text
+        strip.text.x = element_text(face = "bold"),
+        # remove minor grid lines
+        panel.grid.minor = element_blank()
+        )
 ```
 
-
-# Investigate the metrics
-
-```{r}
-soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
-```
+Economic growth is slowing in most countries except for Denmark. This is to be expected as high rates of economic growth are not sustainable and are typical of developing nations. The UK shows stable growth accross the last decade, though it is quite low. 
 
 
-
-
-
-
-
-```{r}
-soc_eco_env <- soc_eco_env %>% 
-  mutate(col_name = paste(category, indicator, sep = "_")) %>%
-  select(-c(category, indicator)) %>%
-  pivot_wider(names_from = "col_name",
-              values_from = value,
-              values_fn = max)
-
-```
 
 
 

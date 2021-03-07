@@ -111,12 +111,9 @@ for(country in radar_countries){
 gsci <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
 
 
-# obtain countries of interest
-gci_top_10_countries <- gsci %>%
-  slice_max(gsci_score, n = 10) %>%
-  pull(country_code)
+top_countries <- read_csv("clean_data/top_countries.csv")
 
-gci_top_10_countries <- c(gci_top_10_countries, "GBR")
+gci_top_10_countries <- top_countries %>% pull (country_code)
 
 gsci <- gsci %>%
   select(country_code, starts_with("gsci"))
@@ -154,9 +151,13 @@ rownames(max_min) <- c("Max", "Min")
 see_radar <- rbind(max_min, see_radar)
 
 # set plot colours
-colours <- rep(c("#e04059", "#eb701c", "#4f529c", "#38a380", "#025AA2"), 10)
+#colours <- rep(c("#e04059", "#eb701c", "#4f529c", "#38a380", "#025AA2"), 10)
 
-
+top_countries <- top_countries %>%
+  mutate(index_colour = case_when(index == "gci_overall" ~ "#EB701C",
+                            index == "gsci_score" ~ "#38A380",
+                            index == "uk" ~ "#E04059",
+                            TRUE ~ "orange"))
 
 # loop to create each country plot and export as png
 
@@ -164,6 +165,12 @@ for(country in gci_top_10_countries){
 
   # determine sequence number for plot colours
   sequence_number <- match(country, gci_top_10_countries)
+  
+  # determine colour based on which index it ranks top in
+index_col <- top_countries %>%
+  filter(country_code == country) %>%
+  pull(index_colour)
+  
   
   # plot titles
   country_label = countrycode(country, origin = "iso3c", destination = "country.name")
@@ -196,11 +203,11 @@ for(country in gci_top_10_countries){
              # data points
              pty = 20,
              # colour of data
-             pcol = colours[sequence_number],
+             pcol = index_col,
              # density of the fill lines
              pdensity = c(50,100,100),
              # colour of polygon fill
-             pfcol = colours[sequence_number],
+             pfcol = index_col,
              # set axis type
              axistype = 1,
              # set axos coloirs

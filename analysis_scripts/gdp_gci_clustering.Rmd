@@ -11,7 +11,6 @@ library(factoextra)
 ```
 
 
-
 The Global Competitiveness Index is an index that looks beyond short term measures and takes into account a full range of factors that determine long term productivity to assess a countries progress.
 
 The index is made up of metrics classified under 12 pillars:
@@ -33,9 +32,6 @@ The index is made up of metrics classified under 12 pillars:
 
 "The GCI shows that other countries have very different results on social and environmental factors for the same level of current competitiveness and must begin work today to get on the path to creating not just growing but also low-carbon and inclusive economies."
 
-I will begin by clutsering countries into broad groups based on the GCI. I will focus on the cluster containing the UK, and look at how their social and environmental policies compare to its counterparts. 
-
-So you need to go back and include gci_overall, gdp_growth, measures of sustainability and social equity. First explore these factors. 
 
 ```{r}
 ca_join <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
@@ -46,35 +42,7 @@ ca_join <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
 - GCI pillars
 
 
-```{r}
-# plot the different gdp metrics to decide whats important when comparing it to GCI
-ca_join %>%
-  pivot_longer(cols = starts_with("gdp"),
-               names_to = "gdp_metric",
-               values_to = "gdp_value") %>%
-  ggplot() +
-  aes(x = log(gdp_value), y = gci_overall) +
-  geom_point() +
-  facet_wrap(~gdp_metric, scales = "free_x")
-```
-
-I will select gdp per capital growth as a measure as it is not correlated to GCI, to investigate the groups. 
-
-```{r}
-# investigate the patterns within each pillar 
-ca_join %>%
-    pivot_longer(cols = starts_with("p_"),
-               names_to = "pillar",
-               values_to = "pillar_value") %>%
-  ggplot() +
-  aes(x = gdp_growth_annual, y = pillar_value, colour = country_code == "GBR") +
-  geom_point(alpha = 0.8) +
-  #geom_text(aes(label = country_code), check_overlap = TRUE) +
-  facet_wrap(~pillar) +
-  theme_bw() +
-  scale_colour_viridis_d(option = "viridis", end = .8)+
-  theme(legend.position = "none")
-```
+# Correlation plot
 
 ```{r}
 library(broom)
@@ -155,19 +123,12 @@ ca_join %>%
   
 ```
 
-
-
-
-
 # Data preparation for clustering
 
 ```{r}
 ca_join %>%
   is.na() %>%
   colSums()
-
-ca_join %>%
-  filter(is.na(gini_index))
 ```
 
 
@@ -254,7 +215,7 @@ cluster_map <- world %>%
 #plot clusters on world map
 cluster_map %>%
 ggplot() +
-  geom_sf(aes(fill = cluster), size = 0.1, col = "black") +
+  geom_sf(aes(fill = .cluster), size = 0.1, col = "black") +
   theme_void()+
   # change the projections mercator: 3395; robinson: 54030
   # find them all here: https://semba-blog.netlify.app/01/26/2020/world-map-and-map-projections/
@@ -285,10 +246,10 @@ ca_to_plot <- augment(pillars_clust, ca) %>%
 
 
 ```
-Violin plot!
+Violin plot
 
 ```{r}
-
+# This code is sourced from 
 # https://stackoverflow.com/questions/35717353/split-violin-plot-with-ggplot2
 
 GeomSplitViolin <- ggproto(
@@ -363,23 +324,35 @@ ca_join %>%
 ```
 
 ```{r}
+library(ggridges)
 ca_join %>%
   left_join(ca_clusters, by = "country_code") %>%
+  select(-gsci_score) %>% 
+    pivot_longer(cols = c(starts_with("gsci_")),
+               names_to = "pillar",
+               values_to = "pillar_value") %>%
   ggplot() +
-  aes(x = .cluster, y = gdp_per_capita_ppp, fill = .cluster) +
-  geom_violin(alpha = 0.9) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("#E04059", "#38A380"))
+  aes(x = pillar_value, 
+      y = pillar, 
+      color = .cluster, 
+      fill = .cluster) +
+  # geom_density_ridges(
+  #      alpha = 0.7,  
+  #      scale = .95, # prevents overlap between pillars
+  #      rel_min_height = .01 #removes tails at 0
+  # ) +
+    stat_density_ridges(quantile_lines = TRUE, quantiles = 2, alpha = 0.6, scale = 0.95) +
+    scale_fill_manual(values = c("#E04059", "#4F529C")) +
+    scale_color_manual(values = c("#E04059", "#4F529C")) +
+    theme_ridges(center = TRUE)
+
+
+
 ```
-
-
-
-
 
 The two groups of countries are as such:
 
-Cluster 1 low governance and intellectual capital and social capital scores.
+Cluster 1 low governance, intellectual capital and social capital scores.
 
 Cluster 2 higher governance, intellectual capital and social capital. 
 

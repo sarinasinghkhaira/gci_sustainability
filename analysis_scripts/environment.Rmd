@@ -1,0 +1,24 @@
+---
+title: "Environment Analysis"
+author: "Sarina Singh Khaira"
+date: "10/03/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(here)
+library(tidytext)
+library(countrycode)
+```
+
+
+```{r}
+soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
+top_countries <- read_csv(here("clean_data/top_countries.csv"))
+```

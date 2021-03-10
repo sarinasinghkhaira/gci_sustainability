@@ -112,11 +112,54 @@ social_equity_historic <- wdi_data_clean %>%
   filter(str_detect(indicator_name, "gini")) %>%
   mutate(indicator_name = case_when(
     str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)") ~ "unemployment_pctg",
-    str_detect(indicator_name, "gini") ~ "gini_index"
-  )) %>%
+    str_detect(indicator_name, "gini") ~ "gini_index"),
+    year = as.numeric(year)) %>%
   pivot_wider(names_from = indicator_name,
               values_from = value)
 
+
+# Global Gender Gap Index -------------------------------------------------
+# https://tcdata360-backend.worldbank.org/api/v1/datasets/743/dump.csv
+# Index between 0 (inequality) and 1 (equality)
+
+ggi_data <- read_csv("raw_data/gender_gap_index.csv") %>%
+  clean_names()
+
+ggi_data_clean_full <- ggi_data %>%
+  na_if(., "..") %>%
+  pivot_longer( cols = starts_with("x20"),
+                names_to = "year",
+                names_prefix = "x") %>%
+  mutate(year = as.numeric(str_extract(year, "20[0-9][0-9]")),
+         value = as.numeric(value)) %>%
+  select(-indicator_id) %>%
+  pivot_wider(names_from = subindicator_type,
+             values_from = value,
+             names_prefix = "ggi_") %>%
+  clean_names()
+
+
+ggi_clean <- ggi_data_clean_full %>%
+  rename(country = country_name,
+         country_code = country_iso3) %>%
+  filter(country_code %in% gci_country_iso,
+         !is.na(ggi_index),
+         indicator == "Overall Global Gender Gap Index") %>%
+  select(-ggi_normalized_score, -indicator, -country)
+
+
+ggi_clean_filter <- ggi_clean %>%
+  group_by(country_code) %>%
+  filter(year == max(year)) %>%
+  select(-year)
+
+
+
+# Join gini & gender gap historic data ------------------------------------
+
+ggi_clean %>%
+  left_join(social_equity_historic, by = c("country_code", "year")) %>%
+  write_csv("clean_data/social_equity_historic.csv")
 
 # Clean Carbon Data -------------------------------------------------------
 
@@ -125,7 +168,7 @@ co2_emissions <- read_csv("raw_data/owid-co2-data.csv")
 
 co2_emissions <- co2_emissions %>%
   filter(iso_code %in% gci_country_iso &
-         year > 2009) %>%
+           year > 2009) %>%
   rename(country_code = iso_code)
 
 co2_trimmed <- co2_emissions %>%
@@ -173,47 +216,6 @@ gdp_avg_growth <- gdp_clean %>%
   summarise(
     gdp_growth_decade = mean(gdp_growth_annual, na.rm = TRUE)
   )
-
-
-# Global Gender Gap Index -------------------------------------------------
-# https://tcdata360-backend.worldbank.org/api/v1/datasets/743/dump.csv
-# Index between 0 (inequality) and 1 (equality)
-
-ggi_data <- read_csv("raw_data/gender_gap_index.csv") %>%
-  clean_names()
-
-ggi_data_clean_full <- ggi_data %>%
-  na_if(., "..") %>%
-  pivot_longer( cols = starts_with("x20"),
-                names_to = "year",
-                names_prefix = "x") %>%
-  mutate(year = as.numeric(str_extract(year, "20[0-9][0-9]")),
-         value = as.numeric(value)) %>%
-  select(-indicator_id) %>%
-  pivot_wider(names_from = subindicator_type,
-             values_from = value,
-             names_prefix = "ggi_") %>%
-  clean_names()
-
-
-ggi_clean <- ggi_data_clean_full %>%
-  rename(country = country_name,
-         country_code = country_iso3) %>%
-  filter(country_code %in% gci_country_iso,
-         !is.na(ggi_index),
-         indicator == "Overall Global Gender Gap Index") %>%
-  select(-ggi_normalized_score, -indicator, -country)
-
-
-ggi_clean_filter <- ggi_clean %>%
-  group_by(country_code) %>%
-  filter(year == max(year)) %>%
-  select(-year)
-
-
-
-
-
 
 
 # Natural Capital GCSI 2020 ----------------------------------------------------
@@ -458,5 +460,27 @@ uk <- c("GBR", "uk")
 names(uk) <- names(top_countries)
 top_countries <- bind_rows(top_countries, uk)
 
+# add a vector
+top_country_codes <- top_countries %>% pull(country_code)
+
+
 # write to clean data
 write_csv(top_countries, "clean_data/top_countries.csv")
+
+
+
+# Carbon Footprint Data ---------------------------------------------------
+#https://data.world/footprint/nfa-2019-edition
+#footprint <- read_csv("raw_data/NFA 2018 Edition.csv")
+footprint <- read_csv("raw_data/NFA 2019 public_data.csv")
+
+
+footprint_clean <- footprint %>%
+  mutate(country_code = countryname(country, destination = "iso3c")) %>%
+  rename(quality_score = "QScore") %>%
+  select(-c(country)) %>%
+  clean_names() %>%
+  filter(country_code %in% top_country_codes)
+
+write_csv(footprint_clean, "clean_data/carbon_footprint.csv")
+

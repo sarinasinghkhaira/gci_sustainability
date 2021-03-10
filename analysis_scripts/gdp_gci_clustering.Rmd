@@ -213,7 +213,7 @@ cluster_map <- world %>%
   full_join(ca_clusters, by = c("brk_a3" = "country_code"))
 
 #plot clusters on world map
-cluster_map %>%
+map <- cluster_map %>%
 ggplot() +
   geom_sf(aes(fill = .cluster), size = 0.1, col = "black") +
   theme_void()+
@@ -223,7 +223,11 @@ ggplot() +
   scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster", breaks = c(1,2)) +
   theme(legend.position = c(0.2,0.4),
         legend.title = element_text(size = 8, face = "bold"),
-          legend.key.size = unit(0.5, "cm"))
+          legend.key.size = unit(0.5, "cm")) +
+#  labs(title = "Countries Grouped According to Global Sustainable Competitiveness") +
+  theme(plot.title = element_text(color="grey40", size=15, face = "bold"))
+
+ggsave(here("plot_images/cluster_map.png"), map)
 
 
 ```
@@ -325,7 +329,7 @@ ca_join %>%
 
 ```{r}
 library(ggridges)
-ca_join %>%
+ridge_plot <-  ca_join %>%
   left_join(ca_clusters, by = "country_code") %>%
   select(-gsci_score) %>% 
     pivot_longer(cols = c(starts_with("gsci_")),
@@ -336,18 +340,33 @@ ca_join %>%
       y = pillar, 
       color = .cluster, 
       fill = .cluster) +
-  # geom_density_ridges(
-  #      alpha = 0.7,  
-  #      scale = .95, # prevents overlap between pillars
-  #      rel_min_height = .01 #removes tails at 0
-  # ) +
-    stat_density_ridges(quantile_lines = TRUE, quantiles = 2, alpha = 0.6, scale = 0.95) +
-    scale_fill_manual(values = c("#E04059", "#4F529C")) +
-    scale_color_manual(values = c("#E04059", "#4F529C")) +
-    theme_ridges(center = TRUE)
+    stat_density_ridges(quantile_lines = TRUE, 
+                        quantiles = 2, 
+                        alpha = 0.6, 
+                        scale = 0.95, 
+                        rel_min_height = .01) +
+    scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
+    scale_color_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
+    theme_ridges(center_axis_labels = TRUE) +
+  labs(x = "Score") +
+  scale_y_discrete(labels = c("Governance", "Intellectual\nCapital", 
+                              "Natural Capital", "Resource\nIntensity", "Social Capital")) +
+  scale_x_continuous(breaks = c(seq(10, 80, by = 10))) +
+    theme(
+    # remove panel grids and ticks
+  #  panel.grid.major.y = element_line(size = 0.5, colour = "black"),
+   # panel.grid.major.x = element_blank(),
+  #  panel.grid.minor = element_blank(),
+  #  panel.border = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+  #  legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  )
 
-
-
+ggsave(here("plot_images/cluster_ridge.png"), ridge_plot, height = 6)
 ```
 
 The two groups of countries are as such:

@@ -22,3 +22,170 @@ library(countrycode)
 soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
 top_countries <- read_csv(here("clean_data/top_countries.csv"))
 ```
+
+
+```{r}
+
+# select out social equity measures
+enviro <- soc_eco_env %>% 
+  filter(category == "env") %>%
+  select(-category) %>%
+  filter(!indicator %in% c( "total_consumption",  "nat_cap_rank", "gsci_rank", "gsci_score"))
+
+
+
+
+# extract vector of country_codes
+top_country_codes <- top_countries %>% pull(country_code)
+
+```
+
+# Incase you want to look at rankings:
+
+High = bad, low = good:
+ "co2"                        "consumption_co2_per_capita" 
+  
+  
+High = good, low = bad              
+"nat_cap_score"              "ren_gen_twh_19"             "ren_gen_growth_19"         
+ "rene_gen_growth_08_18"      "renewable_cons_exj"                  "renewable_cons_prop"   
+
+  Irrelevant:
+ "total_consumption",  "nat_cap_rank", "gsci_rank", "gsci_score"  
+ 
+
+```{r}
+
+  # add a column for ranking of each metric
+enviro_rankings <- enviro %>%
+  mutate(across(is.numeric, coalesce, 0)) %>%
+  # mutate the indicators that have a reverse scale
+  mutate(value = ifelse(indicator %in% c("co2", "consumption_co2_per_capita"), value*-1, value)) %>%
+  group_by(indicator) %>%
+  mutate(rank = rank(desc(value)))
+
+```
+
+
+
+
+```{r}
+footprint <- read_csv(here("clean_data/carbon_footprint.csv"))
+```
+
+```{r}
+footprint %>%
+  filter(record %in% c("BiocapPerCap", "EFConsPerCap")) %>%
+  ggplot() +
+  aes(x = year, y = total, group = record, colour = record) +
+  geom_line()+
+  facet_wrap(~country_code, scales = "free_y")
+
+```
+
+```{r}
+footprint %>%
+    filter(record %in% c("BiocapPerCap", "EFConsPerCap"),
+           country_code == "GBR") %>%
+  select(-c(quality_score, country_code)) %>%
+  pivot_longer(cols = c(crop_land:total)) %>%
+    ggplot() +
+  aes(x = year, y = value, group = record, colour = record) +
+  geom_line()+
+  facet_wrap(~name, scales = "free_y")
+
+
+```
+
+```{r}
+co2 <- read_csv(here("raw_data/owid-co2-data.csv"))
+```
+
+```{r}
+co2 %>%
+  filter(iso_code == "GBR") %>%
+  ggplot() +
+  aes(x = year) +
+  geom_line(aes(y = co2_per_capita)) +
+  xlim(c(1800, 2019))
+
+
+
+```
+
+```{r}
+footprint_uk <- footprint %>%
+    filter(record %in% c("BiocapPerCap", "EFConsPerCap"), 
+           country_code == "GBR") %>%
+  select(country_code, record, total, year) 
+
+
+footprint_plot <- footprint_uk %>%
+  ggplot() +
+  aes(x = year, y = total, colour = record) +
+  geom_line(size = 2) +
+  labs(x = "Year", y = "Global Hectares Per Capita") +
+  scale_colour_manual(values = c("#03635D", "#E04059"),
+                      labels = c("BioCapacity", "Ecological Footprint")) +
+  scale_x_continuous(breaks = seq(1960, 2016, 10), 
+                   labels = seq(1960, 2016, 10),
+                   limits = c(1960, 2020)) +
+  annotate("text", x = 2016, y = 3.8, label  = "Ecological\nFootprint\n(demand)", col = "#E04059", fontface = "bold") +
+
+  annotate("text", x = 2016, y = 1.7, label = "BioCapacity\n(resources)", col = "#03635D", fontface = "bold") +
+  theme_light() +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 10)) +
+  ggtitle("Ecological footprint & Biocapacity per capita in the United Kingdom")
+
+ggsave(here("plot_images/carbon_footprint.png"), footprint_plot, height = 5)
+```
+
+```{r}
+# set facet grid laels
+indicator_labs <- c("CO2 Consumption per Capita", "Renewable Energy Consumption Proportion", "Natural Capital GSCI Score")
+names(indicator_labs) <- c("consumption_co2_per_capita", "renewable_cons_prop", "nat_cap_score")
+
+# take a look at the UK's ranking
+enviro_lolipop <- enviro_rankings %>%  
+  filter(country_code %in% top_country_codes,
+         indicator %in% c("consumption_co2_per_capita", "renewable_cons_prop", "nat_cap_score")) %>%
+  mutate(indicator = as.factor(indicator),
+         country_name = countrycode(country_code, "iso3c", "country.name"),
+         country_code_order = reorder_within(country_name, -rank, indicator)) %>%
+  ggplot() +
+  aes(x = country_code_order, y = rank, colour = country_code == "GBR") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=rank, yend = -1), col = "grey64") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=154, yend = rank)) +
+  geom_point( size=4, alpha=0.6) +
+  geom_text(aes(label = round(rank)), colour = "black", size =  3, fontface = "bold") +
+  theme_light() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    strip.background = element_rect(color = "black",
+                                    fill = "white",
+                                    linetype = "blank"),
+    strip.text.x = element_text(face = "bold", colour = "grey40", size = 10),
+    legend.position = "none"
+  ) +
+  facet_wrap(~indicator, 
+             nrow = 3, 
+             scales = "free",
+             labeller = labeller(indicator = indicator_labs)) +
+  scale_x_reordered() +
+    scale_colour_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip()
+
+ggsave(here("plot_images/enviro_lollipop.png"), enviro_lolipop, height = 5, width = 5)
+
+```
+
+```{r}
+
+```
+

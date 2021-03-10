@@ -3,6 +3,7 @@ library(fmsb)
 library(tidyverse)
 library(countrycode)
 library(snakecase)
+library(scales)
 
 # read in data
 soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
@@ -89,7 +90,7 @@ for(country in radar_countries){
              # web line colours
              cglcol = "grey",
              # font size magnification
-             vlcex = 1.1,
+             vlcex = 1.,
              # data points
              pty = 20,
              # colour of data
@@ -163,15 +164,20 @@ top_countries <- top_countries %>%
 
 for(country in gci_top_10_countries){
 
-  # determine sequence number for plot colours
+    # determine sequence number for plot colours
   sequence_number <- match(country, gci_top_10_countries)
   
   # determine colour based on which index it ranks top in
 index_col <- top_countries %>%
   filter(country_code == country) %>%
   pull(index_colour)
-  
-  
+
+  # determine gsci_rank
+gsci_rank <- gsci %>%  
+  mutate(gsci_rank = ordinal(rank(-gsci_score))) %>% 
+  filter(country_code == country) %>%
+  pull(gsci_rank)
+
   # plot titles
   country_label = countrycode(country, origin = "iso3c", destination = "country.name")
   
@@ -184,12 +190,15 @@ index_col <- top_countries %>%
   # subset radar data to select a country
   radar <- see_radar[c("Max", "Min", country), ]
   
+  # set plot margins
+# par(mar=c(1,2,1,2)) # 'bottom', 'left', 'top', 'right'.
+ # par(oma = c(0,0,0,0))
   # draw plot
   radarchart(radar, 
-             title = country_label, 
-
+             title = paste0(country_label," (", gsci_rank, ")"),
+             cex.main = 1.5,
              # axis labels
-             vlabels = c("Natural\nCapital", 
+             vlabels = c("Natural Capital", 
                          "Resource\nEfficiency", 
                          "Social\nCapital", 
                          "Intellectual\nCapital", 
@@ -199,7 +208,7 @@ index_col <- top_countries %>%
              # web line colours
              cglcol = "grey",
              # font size magnification
-             vlcex = 1,
+             vlcex = 1.3,
              # data points
              pty = 20,
              # colour of data
@@ -215,8 +224,10 @@ index_col <- top_countries %>%
              # axis labels
              caxislabels = c(0, 25, 50, 75, 100),
              # axis label size
-             calcex = 0.8
+             calcex = 1.0
   )  
+  
+  text(1.5, 15.1, "Female", srt=33, font=3)
   
   # close file
   dev.off()

@@ -107,6 +107,15 @@ social_equity <- wdi_data_clean %>%
   pivot_wider(names_from = indicator_name,
               values_from = value)
 
+# export social equity historic data
+social_equity_historic <- wdi_data_clean %>%
+  filter(str_detect(indicator_name, "gini")) %>%
+  mutate(indicator_name = case_when(
+    str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)") ~ "unemployment_pctg",
+    str_detect(indicator_name, "gini") ~ "gini_index"
+  )) %>%
+  pivot_wider(names_from = indicator_name,
+              values_from = value)
 
 
 # Clean Carbon Data -------------------------------------------------------
@@ -187,16 +196,22 @@ ggi_data_clean_full <- ggi_data %>%
   clean_names()
 
 
-ggi_clean_filter <- ggi_data_clean_full %>%
+ggi_clean <- ggi_data_clean_full %>%
   rename(country = country_name,
          country_code = country_iso3) %>%
   filter(country_code %in% gci_country_iso,
          !is.na(ggi_index),
          indicator == "Overall Global Gender Gap Index") %>%
-  select(-ggi_normalized_score, -indicator, -country) %>%
+  select(-ggi_normalized_score, -indicator, -country)
+
+
+ggi_clean_filter <- ggi_clean %>%
   group_by(country_code) %>%
   filter(year == max(year)) %>%
   select(-year)
+
+
+
 
 
 
@@ -219,13 +234,16 @@ names(gcsi_data) <- c("country",
 gcsi_data <- gcsi_data %>%
   slice(-1) %>%
   mutate(across(-country, as.numeric),
-         country_code = countryname(country, destination = "iso3c")) %>%
-  filter(country_code %in% gci_country_iso)
+         country_code = countryname(country, destination = "iso3c"))
+
+# write out clean gsci dataset
+write_csv(gcsi_data, "clean_data/gsci_all.csv")
 
 natural_cap <- gcsi_data %>%
   select(country_code, gsci_score, nat_cap_score)
 
-gsci_all <- gcsi_data %>%
+gsci_select <- gcsi_data %>%
+    filter(country_code %in% gci_country_iso) %>%
   select(-ends_with("rank"), -country) %>%
   rename_with(.cols = -c(gsci_score, country_code), .fn = ~ paste0("gsci_", .x))
 
@@ -320,7 +338,7 @@ ca_join <- ca_gci_pillars %>%
   left_join(ggi_clean_filter) %>%
   left_join(co2_trimmed) %>%
   left_join(renewables_data) %>%
-  left_join(gsci_all) 
+  left_join(gsci_select) 
 
 
 # Check for NAs  ----------------------------------------------------------

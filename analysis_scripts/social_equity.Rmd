@@ -2,3 +2,267 @@
 title: "R Notebook"
 output: html_notebook
 ---
+
+```{r}
+library(tidyverse)
+library(here)
+library(tidytext)
+library(countrycode)
+```
+
+
+```{r}
+soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
+top_countries <- read_csv(here("clean_data/top_countries.csv"))
+```
+
+```{r}
+# select out social equity measures
+social_equity <- soc_eco_env %>% 
+  filter(category == "se") %>%
+  select(-category)
+
+  # add a column for ranking of each metric
+social_equity_rankings <- social_equity %>%
+  # as the gini index is reverse (0 is equality, 1 is in equality, reverse it first)
+  mutate(value = ifelse(indicator == "gini_index", value*-1, value)) %>%
+  group_by(indicator) %>%
+  mutate(rank = rank(desc(value)))
+
+# extract vector of country_codes
+top_country_codes <- top_countries %>% pull(country_code)
+```
+
+
+```{r}
+# set facet grid laels
+indicator_labs <- c("Global Gender Gap Index Rank", "Wealth Inequality Rank (Gini Index)", "World Happiness Report Rank")
+names(indicator_labs) <- c("ggi_index", "gini_index", "happiness_score")
+
+# take a look at the UK's ranking
+soc_eq_lolipop <- social_equity_rankings %>%
+  filter(country_code %in% top_country_codes,
+         !str_detect(indicator, "_rank"),
+         indicator != "unemployment_pctg") %>%
+  mutate(indicator = as.factor(indicator),
+         country_name = countrycode(country_code, "iso3c", "country.name"),
+         country_code_order = reorder_within(country_name, -rank, indicator)) %>%
+  ggplot() +
+  aes(x = country_code_order, y = rank, colour = country_code == "GBR") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=rank, yend = -1), col = "grey64") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=100, yend = rank)) +
+  geom_point( size=4, alpha=0.6) +
+  geom_text(aes(label = round(rank)), colour = "black", size =  3, fontface = "bold") +
+  theme_light() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    strip.background = element_rect(color = "black",
+                                    fill = "white",
+                                    linetype = "blank"),
+    strip.text.x = element_text(face = "bold", colour = "grey40", size = 10),
+    legend.position = "none"
+  ) +
+  facet_wrap(~indicator, 
+             nrow = 3, 
+             scales = "free_y",
+             labeller = labeller(indicator = indicator_labs)) +
+  scale_x_reordered() +
+    scale_colour_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip()
+
+ggsave(here("plot_images/social_equity_lollipop.png"), soc_eq_lolipop, height = 5, width = 5)
+```
+
+# Global Gender Gap 
+
+The Global Gender Gap Index is an index put together by the World Economic Forum. 0 represents inequality and 1 represents equality. 
+
+```{r}
+uk_ggi <- social_equity %>%
+  filter(indicator == "ggi_index",
+#         country_code %in% top_country_codes) %>%
+          country_code == "GBR") %>%
+  # add country names
+  mutate(country_code = countrycode(country_code, "iso3c", "country.name"),
+         # reorder countries as factors
+         country_code = fct_reorder(country_code, value)) %>%
+  ggplot() +
+  aes(x = country_code, y = value, colour = country_code == "United Kingdom") +
+  # add lines from country to value
+  geom_segment( aes(x= country_code, xend= country_code, y=value, yend = 0), 
+                size = 2, alpha = 0.8) +
+  # add greyed out line
+  geom_segment( aes(x= country_code, xend= country_code, y=1, yend = value), 
+                size = 2, alpha = 0.4,
+                colour = "grey40") +
+  # add points
+  geom_point( size=4, alpha=1) +
+  # add value
+  geom_text(aes(label = value), colour = "black", size =  3, vjust = -1, fontface = "bold") +
+  geom_abline(slope = 0, intercept = 1, col = "#E04059", size = 0.8) +
+  theme_light() +
+  theme(
+    # remove panel grids and ticks
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  ) +
+  scale_x_reordered() +
+  scale_y_continuous(breaks = c(0, 0.5,1), 
+                     labels = c("0", "Gender Gap Index", "Equality"), 
+                     limits = c(0,1)
+                     ) +
+  scale_color_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "Global Gender Gap Index",
+       subtitle = "World Economic Forum 2018")
+
+ggsave(here("plot_images/uk_ggi.png"), uk_ggi, width = 6, height = 2.5)
+```
+
+
+```{r}
+uk_happiness <- social_equity %>%
+  filter(indicator == "happiness_score",
+#         country_code %in% top_country_codes) %>%
+          country_code == "GBR") %>%
+  # add country names
+  mutate(country_code = countrycode(country_code, "iso3c", "country.name"),
+         # reorder countries as factors
+         country_code = fct_reorder(country_code, value)) %>%
+  ggplot() +
+  aes(x = country_code, y = value, colour = country_code == "United Kingdom") +
+  # add lines from country to value
+  geom_segment( aes(x= country_code, xend= country_code, y=value, yend = 10), 
+                size = 2, alpha = 0.4,,
+                colour = "grey40") +
+  # add greyed out line
+  geom_segment( aes(x= country_code, xend= country_code, y=0, yend = value), 
+                size = 2, alpha = 0.8) +
+  # add points
+  geom_point( size=4, alpha=1) +
+  # add value
+  geom_text(aes(label = value), colour = "black", size =  3, vjust = -1, fontface = "bold") +
+  geom_abline(slope = 0, intercept = 10, col = "#E04059", size = 0.8) +
+  theme_light() +
+  theme(
+    # remove panel grids and ticks
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  ) +
+  scale_x_reordered() +
+  scale_y_continuous(breaks = c(0, 5, 10), 
+                     labels = c("0", "World Happiness Score", "10"), 
+                     limits = c(0,10)
+                     ) +
+  scale_color_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "World Happiness Score",
+       subtitle = "2018")
+
+ggsave(here("plot_images/uk_happiness.png"), uk_happiness, width = 6, height = 2.5)
+```
+
+
+
+# Gini Index
+
+The Gini index represents income inequality within a nation. 0 represents perfect equality and 100 represents inequality.
+```{r}
+uk_gini <- social_equity %>%
+  filter(indicator == "gini_index",
+#         country_code %in% top_country_codes) %>%
+          country_code == "GBR") %>%
+  # add country names
+  mutate(country_code = countrycode(country_code, "iso3c", "country.name"),
+         # reorder countries as factors
+         country_code = fct_reorder(country_code, -value)) %>%
+  ggplot() +
+  aes(x = country_code, y = value, colour = country_code == "United Kingdom") +
+  # add lines from country to value
+  geom_segment( aes(x= country_code, xend= country_code, y=100, yend = value), 
+                size = 2, alpha = 0.8) +
+  # add greyed out line
+  geom_segment( aes(x= country_code, xend= country_code, y=value, yend = 0), 
+                size = 2, alpha = 0.4,
+                colour = "grey40") +
+  # add points
+  geom_point( size=4, alpha=1) +
+  # add value
+  geom_text(aes(label = value), colour = "black", size =  3, vjust = -1, fontface = "bold") +
+  geom_abline(slope = 0, intercept = 0, col = "#E04059", size = 0.8) +
+  theme_light() +
+  theme(
+    # remove panel grids and ticks
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  ) +
+  scale_x_reordered() +
+  scale_color_manual(values = c("#38A380", "#EB701C")) +
+  scale_y_reverse(breaks = c(100,50, 0), 
+                     labels = c("100", "Gini Index", "Equality"), 
+                     limits = c(100, 0 )) +
+ coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "Income inequality represented by Gini Index",
+       subtitle = "World Bank 2018")
+
+ggsave(here("plot_images/uk_gini.png"), uk_gini, width = 6, height = 2.5)
+
+```
+
+
+
+# Over time
+
+```{r}
+soc_eq_hist <- read_csv(here("clean_data/social_equity_historic.csv"))
+soc_eq_hist %>%
+  filter(country_code %in% top_country_codes) %>%
+  ggplot() +
+  aes(x = year, y = ggi_index, group = country_code, colour = country_code == "GBR") +
+  geom_line() +
+  scale_x_continuous(breaks = c(2006:2018)) +
+  ylim(c(0,1))
+
+```
+
+
+At the current rate of increase in the uk, assuming its linear, what year will we reach 1?
+
+```{r}
+soc_eq_hist %>%
+  filter(country_code == "GBR")
+```
+
+

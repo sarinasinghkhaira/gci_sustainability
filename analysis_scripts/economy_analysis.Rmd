@@ -336,7 +336,8 @@ gdp_tc_plot <- gdp_top_countries %>%
                names_to = "gdp_measure") 
 
 # plot gdp growth per capita
-gdp_plot <- gdp_tc_plot %>%
+#gdp_plot <- 
+gdp_tc_plot %>%
   filter(index != "uk") %>%
   ggplot() +
   aes(x = year, 
@@ -386,7 +387,52 @@ ggsave(here("plot_images/gdp_annual_growth.png"), gdp_plot)
 Economic growth is slowing in most countries except for Denmark. This is to be expected as high rates of economic growth are not sustainable and are typical of developing nations. The UK shows stable growth accross the last decade, though it is quite low. 
 
 
+```{r}
+gdp_uk <- gdp_top_countries %>%
+  filter(country_code == "GBR") %>%
+  pivot_longer(cols = starts_with("gdp"))
+
+gdp_uk %>%
+  ggplot() +
+  aes(x = year, y = value) +
+  geom_line() +
+  facet_wrap(~name, scales = "free_y") +
+  scale_x_continuous(breaks = c(2010:2019), labels = c(2010:2019))
+```
 
 
+```{r}
+library(scales)
+
+gdp_uk_plot <- gdp_uk %>%
+  filter(name == "gdp_per_capita_us" |
+           name == "gdp_per_capita_ppp") %>%
+  ggplot() +
+  aes(x = year, y = value, colour = name) +
+  geom_line(size = 1.2, alpha = 0.6) +
+  scale_x_continuous(breaks = c(2010:2019), labels = c(2010:2019)) +
+  scale_y_continuous(labels = comma) +
+  labs(x = "Year",
+       y = "GDP per capita") +
+  scale_colour_manual(values = c("#EB701C", "#38A380"), 
+                      labels = c("Purchasing Power Parity",
+                                 "US Dollar ($)"),
+                      name = "GDP per capita measured in:") +
+  theme_bw() +
+    theme(legend.position = "bottom",
+        # remove minor grid lines
+        panel.grid.minor = element_blank(),
+        axis.text      = element_text(size=10,
+                                      color = "grey40", 
+                                      face = "bold"),
+        legend.title = element_text(size = 8, 
+                                    face = "bold", 
+                                    color = "grey40"),
+        axis.title = element_text(size=8,
+                                  color = "grey40", 
+                                  face = "bold"))
+
+ggsave(here("plot_images/gdp_uk.png"), gdp_uk_plot, height = 3, width = 5)
+```
 
 

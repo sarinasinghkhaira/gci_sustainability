@@ -1,9 +1,16 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
-```{r}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+
+```{r include = FALSE}
 library(tidyverse)
 library(here)
 library(tidytext)
@@ -40,7 +47,8 @@ indicator_labs <- c("Global Gender Gap Index Rank", "Wealth Inequality Rank (Gin
 names(indicator_labs) <- c("ggi_index", "gini_index", "happiness_score")
 
 # take a look at the UK's ranking
-soc_eq_lolipop <- social_equity_rankings %>%
+#soc_eq_lolipop <- 
+  social_equity_rankings %>%
   filter(country_code %in% top_country_codes,
          !str_detect(indicator, "_rank"),
          indicator != "unemployment_pctg") %>%
@@ -75,15 +83,16 @@ soc_eq_lolipop <- social_equity_rankings %>%
     scale_colour_manual(values = c("#38A380", "#EB701C")) +
  coord_flip()
 
-ggsave(here("plot_images/social_equity_lollipop.png"), soc_eq_lolipop, height = 5, width = 5)
+#ggsave(here("plot_images/social_equity_lollipop.png"), soc_eq_lolipop, height = 5, width = 5)
 ```
 
 # Global Gender Gap 
 
 The Global Gender Gap Index is an index put together by the World Economic Forum. 0 represents inequality and 1 represents equality. 
 
-```{r}
-uk_ggi <- social_equity %>%
+```{r fig.height= 2.5}
+#uk_ggi <- 
+social_equity %>%
   filter(indicator == "ggi_index",
 #         country_code %in% top_country_codes) %>%
           country_code == "GBR") %>%
@@ -130,12 +139,13 @@ uk_ggi <- social_equity %>%
        title = "Global Gender Gap Index",
        subtitle = "World Economic Forum 2018")
 
-ggsave(here("plot_images/uk_ggi.png"), uk_ggi, width = 6, height = 2.5)
+#ggsave(here("plot_images/uk_ggi.png"), uk_ggi, width = 6, height = 2.5)
 ```
 
 
-```{r}
-uk_happiness <- social_equity %>%
+```{r fig.height= 2.5}
+#uk_happiness <- 
+social_equity %>%
   filter(indicator == "happiness_score",
 #         country_code %in% top_country_codes) %>%
           country_code == "GBR") %>%
@@ -182,7 +192,7 @@ uk_happiness <- social_equity %>%
        title = "World Happiness Score",
        subtitle = "2018")
 
-ggsave(here("plot_images/uk_happiness.png"), uk_happiness, width = 6, height = 2.5)
+#ggsave(here("plot_images/uk_happiness.png"), uk_happiness, width = 6, height = 2.5)
 ```
 
 
@@ -190,8 +200,9 @@ ggsave(here("plot_images/uk_happiness.png"), uk_happiness, width = 6, height = 2
 # Gini Index
 
 The Gini index represents income inequality within a nation. 0 represents perfect equality and 100 represents inequality.
-```{r}
-uk_gini <- social_equity %>%
+```{r fig.height= 2.5}
+#uk_gini <- 
+social_equity %>%
   filter(indicator == "gini_index",
 #         country_code %in% top_country_codes) %>%
           country_code == "GBR") %>%
@@ -237,7 +248,7 @@ uk_gini <- social_equity %>%
        title = "Income inequality represented by Gini Index",
        subtitle = "World Bank 2018")
 
-ggsave(here("plot_images/uk_gini.png"), uk_gini, width = 6, height = 2.5)
+#ggsave(here("plot_images/uk_gini.png"), uk_gini, width = 6, height = 2.5)
 
 ```
 
@@ -253,16 +264,11 @@ soc_eq_hist %>%
   aes(x = year, y = ggi_index, group = country_code, colour = country_code == "GBR") +
   geom_line() +
   scale_x_continuous(breaks = c(2006:2018)) +
-  ylim(c(0,1))
+  ylim(c(0,1)) +
+  theme_light()
 
 ```
 
 
-At the current rate of increase in the uk, assuming its linear, what year will we reach 1?
-
-```{r}
-soc_eq_hist %>%
-  filter(country_code == "GBR")
-```
 
 

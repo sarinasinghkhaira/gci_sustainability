@@ -5,19 +5,22 @@ date: "03/03/2021"
 output: html_document
 ---
 
-```{r}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+```{r include = FALSE}
 library(here)
 library(tidyverse)
 library(RColorBrewer)
 library(countrycode)
 library(snakecase)
 library(extrafont)
-
 ```
 
 
 
-```{r}
+```{r include = FALSE}
 bump_theme <- function() {
 
   # Colors
@@ -59,12 +62,12 @@ bump_theme <- function() {
 ```
 
 
-```{r}
+```{r include = FALSE}
 gci_rankings <- read_csv(here("clean_data/gci_rank_decade.csv"))
 ```
 For the purposes of this exploration I will include the 10 top ranking countries for GCI.
 
-```{r}
+```{r include = FALSE}
 # create vector of countries of interest
 gci_top_10_countries <- gci_rankings %>%
   filter(year == 2018 & gci_rank <= 10) %>%
@@ -78,36 +81,9 @@ gci_rankings_top_10 <- gci_rankings %>%
          year = as.factor(year)) %>%
   select(country, year, gci_rank)
 
-gci_rankings_top_10 %>%
-  ggplot() +
-  aes(x = year, y = gci_rank, group = country, colour = country) +
-# plot lines for all countries
-  geom_line(alpha = 0.3, size = 1.5, lineend = "round", linejoin = "bevel") +
-# plot UK line to highlight
-  geom_line(data = gci_rankings_top_10 %>% filter(country == "United Kingdom"), 
-            aes(x = year, y = gci_rank), 
-            colour = "#d81159", size = 2, lineend = "round", linejoin = "bevel") +
-#  geom_point(alpha = 0.4, size = 4) +
-  scale_y_reverse(breaks = 1:10) +
-# scale_colour_manual(values = mycolors) +
-  scale_color_viridis_d(direction = -1, option = "plasma") +
-  theme_minimal() +
-  bump_theme() +
-# add labels for 2008 rankings  
-  geom_text(data = gci_rankings_top_10 %>% filter(year == 2007), 
-            aes(label = paste(gci_rank, country), x = 0.5), 
-            hjust = 1, colour = "grey40", fontface = "bold", size = 3) +
-# add labels for 2018 rankings  
-  geom_text(data = gci_rankings_top_10 %>% filter(year == 2018), 
-            aes(label = paste(gci_rank, country), x = 12.5), 
-            hjust = 0, colour = "grey40", fontface = "bold", size = 3) +
-  scale_x_discrete(breaks = 2007:2018, expand = c(.28, .1)) +
-  ggtitle("Country Rankings of Global Competitiveness Index") +
-  ylim(c(13, 0))
-
 ```
 
-```{r}
+```{r echo = FALSE}
 gci_rankings_top_10 %>%
   filter(year %in% c(2010:2018)) %>%
   ggplot() +
@@ -221,14 +197,15 @@ colours <- c(rep("#e04059", 4), rep("#eb701c", 2), rep("#4f529c", 4), rep("#38a3
 
 # Heatmap og 12 pillars per 12 countries
 
-heatmap <- pillars %>%
+heatmap <- 
+pillars %>%
   #relevel pillars so they are plotted in order
   mutate(pillar_labs = fct_relevel(pillar_labs, pillar_order),
-         country_name = fct_relevel(country_name, rev(gci_top_10_country_names))
+         country_name = fct_relevel(country_code, gci_top_10_countries)
         ) %>%
   ggplot() +
   geom_tile(aes(y = pillar_labs, 
-                x = country_code, 
+                x = country_name, 
                 fill = score),
             colour = "white", 
             size = 0.5) +
@@ -296,10 +273,9 @@ heatmap <- pillars %>%
 #  scale_x_discrete(position = "top") +
     labs(x = "Country Code", 
        y = NULL)
-#  theme(aspect.ratio = 1)
 
 ggsave(here('plot_images/gci_heatmap.png'), heatmap, height = 4)
-
+heatmap
 ```
 
 ## Idea for future: try a sunburst with the inner circle being the 4 categories, each pillar being the next bit, and then the individual scores as the 3rd layer
@@ -380,7 +356,7 @@ gdp_tc_plot %>%
         panel.grid.minor = element_blank()
         )
 
-ggsave(here("plot_images/gdp_annual_growth.png"), gdp_plot)
+#ggsave(here("plot_images/gdp_annual_growth.png"), gdp_plot)
 
 ```
 

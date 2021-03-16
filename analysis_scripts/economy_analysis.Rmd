@@ -278,7 +278,26 @@ ggsave(here('plot_images/gci_heatmap.png'), heatmap, height = 4)
 heatmap
 ```
 
-## Idea for future: try a sunburst with the inner circle being the 4 categories, each pillar being the next bit, and then the individual scores as the 3rd layer
+## Plot of GCI Rankings and GCSI rankings/scores
+
+```{r}
+gci_soc_env %>%
+  slice_max(gci_overall, n = 30) %>%
+  mutate(index_diff = gci_overall - gsci_score,
+    country_code = fct_reorder(country_code, index_diff)) %>%
+  select(country_code, gci_overall, gsci_score) %>%
+  pivot_longer(cols = -country_code,
+               names_to = "index", 
+               values_to = "score") %>%
+  ggplot() +
+  aes(x = score, y = country_code) +
+  geom_line(aes(group = country_code)) +
+  geom_point(aes(color = index), size = 4) +
+  theme(legend.position = "none") +
+  theme_light() 
+```
+
+
 
 
 

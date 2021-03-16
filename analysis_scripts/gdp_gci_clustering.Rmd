@@ -14,6 +14,11 @@ library(tidyverse)
 library(here)
 library(broom)
 library(factoextra)
+library(rworldmap)
+library(rnaturalearth)
+library(sf)
+library(corr)
+library(ggridges)
 ```
 
 
@@ -51,9 +56,6 @@ ca_join <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
 # Correlation plot
 
 ```{r}
-library(broom)
-library(corrr)
-
 ca_join %>%
   select(-c(country_code, 
             starts_with("p_"), 
@@ -201,10 +203,6 @@ ca_to_plot %>%
 
 
 ```{r}
-library(rworldmap)
-library(rnaturalearth)
-library(sf)
-library(broom)
 
 # obtain a table of countries and the clusters
 ca_clusters <- ca_to_plot %>%
@@ -256,85 +254,10 @@ ca_to_plot <- augment(pillars_clust, ca) %>%
 
 
 ```
-Violin plot
-
-```{r}
-# This code is sourced from 
-# https://stackoverflow.com/questions/35717353/split-violin-plot-with-ggplot2
-
-GeomSplitViolin <- ggproto(
-  "GeomSplitViolin", 
-  GeomViolin, 
-  draw_group = function(self, data, ..., draw_quantiles = NULL) {
-    data <- transform(data, 
-                      xminv = x - violinwidth * (x - xmin), 
-                      xmaxv = x + violinwidth * (xmax - x))
-    grp <- data[1,'group']
-    newdata <- plyr::arrange(
-      transform(data, x = if(grp%%2==1) xminv else xmaxv), 
-      if(grp%%2==1) y else -y
-    )
-    newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
-    newdata[c(1,nrow(newdata)-1,nrow(newdata)), 'x'] <- round(newdata[1, 'x']) 
-    if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
-      stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 1))
-      quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
-      aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
-      aesthetics$alpha <- rep(1, nrow(quantiles))
-      both <- cbind(quantiles, aesthetics)
-      quantile_grob <- GeomPath$draw_panel(both, ...)
-      ggplot2:::ggname("geom_split_violin", 
-                       grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
-    } else {
-      ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
-    }
-  }
-)
-
-geom_split_violin <- function (mapping = NULL, 
-                               data = NULL, 
-                               stat = "ydensity", 
-                               position = "identity", ..., 
-                               draw_quantiles = NULL, 
-                               trim = TRUE, 
-                               scale = "area", 
-                               na.rm = FALSE, 
-                               show.legend = NA, 
-                               inherit.aes = TRUE) {
-  layer(data = data, 
-        mapping = mapping, 
-        stat = stat, 
-        geom = GeomSplitViolin, 
-        position = position, 
-        show.legend = show.legend, 
-        inherit.aes = inherit.aes, 
-        params = list(trim = trim, 
-                      scale = scale, 
-                      draw_quantiles = draw_quantiles, 
-                      na.rm = na.rm, ...)
-        )
-}
-```
 
 
 ```{r}
 
-ca_join %>%
-  left_join(ca_clusters, by = "country_code") %>%
-  pivot_longer(cols = c(starts_with("gsci_")),
-               names_to = "pillar",
-               values_to = "pillar_value") %>%
-  arrange(.cluster) %>%
-  ggplot() +
-  aes(x = pillar, y = pillar_value, fill = .cluster) +
-  geom_split_violin(alpha = 0.9) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("#E04059", "#38A380"))
-```
-
-```{r}
-library(ggridges)
 ridge_plot <-  ca_join %>%
   left_join(ca_clusters, by = "country_code") %>%
   select(-gsci_score) %>% 

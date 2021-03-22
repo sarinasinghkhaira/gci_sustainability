@@ -297,8 +297,119 @@ gci_soc_env %>%
   theme_light() 
 ```
 
+```{r}
+gsci_rankings <- read_csv(here("clean_data/gsci_all.csv")) %>%
+  select(gsci_rank, gsci_score, country_code) %>%
+  rename(rank = gsci_rank,
+         score = gsci_score) %>%
+  mutate(index = "gsci")
+
+gci_gsci_rankings <- gci_rankings %>%
+  filter(year == "2018") %>%
+  select(gci_rank, gci_value, country_code) %>%
+    rename(rank = gci_rank,
+         score = gci_value) %>%
+  mutate(index = "gci") %>%
+  bind_rows(gsci_rankings)
 
 
+```
+
+
+```{r}
+
+ranking_countries <- gci_gsci_rankings %>%
+  filter(rank <= 10) %>%
+  distinct(country_code) %>%
+  pull()
+
+gci_gsci_rankings %>%
+  filter(country_code %in% ranking_countries) %>%
+  group_by(index) %>%
+  mutate(ordering = row_number(rank)) %>%
+  ggplot() +
+  aes(x = index, y = (ordering), group = country_code) +
+  geom_line() +
+  geom_label(aes(label = paste0(rank, " ", country_code))) +
+  scale_y_reverse() +
+  theme_void() +
+  theme(legend.position = "none") +
+  scale_colour_viridis_d(option = "plasma") +
+  annotate()
+  
+```
+
+```{r}
+library(ggbump)
+gci_gsci_rankings_top_20 <- gci_gsci_rankings %>%
+  filter(country_code %in% ranking_countries) %>%
+  group_by(index) %>%
+  mutate(ordering = row_number(rank),
+         country_code = countrycode(country_code, "iso3c", "country.name")) 
+
+gci_gsci_rankings_top_20 %>%
+  ggplot() +
+  aes(x = index, y = rank, group = country_code) +
+# plot lines for all countries
+  geom_line(alpha = 0.3, size = 1, lineend = "round", linejoin = "bevel") +
+# plot UK line to highlight
+#  geom_line(data = gci_rankings_top_10 %>% filter(country == "United Kingdom" & year %in% c(2010:2018)), 
+#            aes(x = year, y = gci_rank), #
+#            colour = "#d81159", size = 1.5, lineend = "round", linejoin = "bevel") +
+#  geom_point(alpha = 0.4, size = 4) +
+  scale_y_reverse() +
+# scale_colour_manual(values = mycolors) +
+  scale_color_viridis_d(direction = -1, option = "plasma") +
+  theme_minimal() +
+  bump_theme() +
+  theme(panel.grid = element_blank()) +
+# add labels for 2010 rankings  
+  geom_text(data = gci_gsci_rankings_top_20 %>% filter(index == "gci"), 
+            aes(label = paste(rank, country_code), x = 0.99, y = rank), 
+            hjust = 1, colour = "grey40", fontface = "bold", size = 3) +
+# add labels for 2018 rankings  
+  geom_text(data = gci_gsci_rankings_top_20 %>% filter(index == "gsci"), 
+            aes(label = paste(rank, country_code), x = 2.01), 
+            hjust = 0, colour = "grey40", fontface = "bold", size = 3) +
+#    scale_x_discrete(breaks = 2010:2018, expand = c(.28, .45)) +
+#  ggtitle("Country Rankings of Global Competitiveness Index") +
+  ylim(c(15, 0))
+```
+
+
+```{r}
+gci_gcsci_plot <- gci_gsci_rankings_top_20 %>%
+  select(country_code, index, rank) %>%
+  unique() %>%
+  pivot_wider(names_from = "index",
+              values_from = "rank",
+              values_fn = max) %>%
+  ggplot() +
+  geom_sigmoid(
+    aes(x = -0.5, xend = 0.5, y = gci, yend = gsci, group = country_code), size = 1.5, alpha = 0.8, color = "grey40") +
+  geom_sigmoid(aes(x = -0.5, xend = 0.5, y = 8, yend = 15), colour = "#d81159", size = 1.5) +
+  geom_text(aes(x = -0.5, y = gci, label = paste(gci, country_code)), hjust = 1, fontface = "bold") +
+  geom_text(aes(x = 0.5, y = gsci, label = paste(gsci, country_code)), hjust = 0, fontface = "bold") +
+  annotate(geom = "text", x = 0.5, y = 0, label = "GSCI", hjust = 0, size = 5, fontface = "bold") +
+  annotate(geom = "text", x = -0.5, y = 0, label = "GCI", hjust = 1, size = 5, fontface = "bold") +
+  scale_y_reverse() +
+  scale_x_discrete(expand = c(1.5, .45)) +
+  theme_void() +
+   ylim(c(15, 0)) +
+  theme(plot.margin = unit(c(0.35, 1, 0.3, 1), "cm"),# top right bottom left
+        text = element_text(face = "bold", colour = "blue")) 
+
+ggsave(here("plot_images/gci_gsci_rank.png"), gci_gcsci_plot, width = 8, height = 5)
+```
+
+
+```{r}
+gci_gsci_rankings_top_20 %>%
+  ggplot() +
+  aes(x = index, y = rank, group = index) +
+# plot lines for all countries
+  geom_line(alpha = 0.3, size = 1, lineend = "round", linejoin = "bevel")
+```
 
 
 

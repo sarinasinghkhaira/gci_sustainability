@@ -258,17 +258,44 @@ social_equity %>%
 
 ```{r}
 soc_eq_hist <- read_csv(here("clean_data/social_equity_historic.csv"))
-soc_eq_hist %>%
-  filter(country_code %in% top_country_codes) %>%
-  ggplot() +
-  aes(x = year, y = ggi_index, group = country_code, colour = country_code == "GBR") +
-  geom_line() +
-  scale_x_continuous(breaks = c(2006:2018)) +
-  ylim(c(0,1)) +
-  theme_light()
+clusters <- read_csv(here("clean_data/clusters.csv"))
 
+soc_eq_hist <- soc_eq_hist %>%
+  left_join(clusters, by = "country_code")
+  
+soc_eq_hist %>%
+  filter(country_code %in% c("GBR")) %>%
+  ggplot() +
+  aes(x = year, y = ggi_index, group = country_code, colour = country_code) +
+  geom_line() +
+  geom_hline(yintercept = 0.7001538) +
+  scale_x_continuous(breaks = c(2006:2018)) +
+  theme_light() 
 ```
 
 
+```{r}
+soc_eq_hist %>%
+  filter(year %in% c(2008, 2018)) %>%
+  group_by(country_code) %>%
+  arrange(year) %>%
+  summarise(diff_in_score = ggi_index -lag(ggi_index)) %>%
+  drop_na(diff_in_score) %>%
+  arrange(diff_in_score)
 
+soc_eq_hist %>% group_by(.cluster) %>%
+  summarise(avg_ggi = mean(ggi_index, na.rm = TRUE),
+            avg_gini = mean(gini_index, na.rm = TRUE))
+```
+
+```{r}
+soc_eq_hist %>%
+  filter(country_code %in% c("GBR")) %>%
+  ggplot() +
+  aes(x = year, y = gini_index, group = country_code, colour = country_code) +
+  geom_line() +
+  geom_hline(yintercept = 33.47697) +
+  scale_x_continuous(breaks = c(2010:2018)) +
+  theme_light() 
+```
 

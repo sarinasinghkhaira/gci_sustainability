@@ -249,7 +249,7 @@ gsci_select <- gcsi_data %>%
   select(-ends_with("rank"), -country) %>%
   rename_with(.cols = -c(gsci_score, country_code), .fn = ~ paste0("gsci_", .x))
 
-
+  
 # World Hapiness Report ---------------------------------------------------
 #https://www.kaggle.com/unsdsn/world-happiness
 happiness <- read_csv("raw_data/world_happiness_2019.csv") %>%

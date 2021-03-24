@@ -1,12 +1,11 @@
 ---
-title: "R Notebook"
+title: "GSCI Clustering"
 output: html_notebook
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
-
 
 
 ```{r}
@@ -17,40 +16,14 @@ library(factoextra)
 library(rworldmap)
 library(rnaturalearth)
 library(sf)
-library(corr)
+library(corrr)
 library(ggridges)
 ```
-
-
-The Global Competitiveness Index is an index that looks beyond short term measures and takes into account a full range of factors that determine long term productivity to assess a countries progress.
-
-The index is made up of metrics classified under 12 pillars:
- * Institutions
- * Infrastructure
- * ICT adoption
- * Macroeconomic stability
- * Health
- * Skills
- * Product market
- * Labour market
- * Financial system
- * Market size
- * Business dynamism
- * Innovation capability.
-
-
-"It is possible for an economy to be growing, inclusive and environmentally sustainable—but few economies are on such a trajectory"
-
-"The GCI shows that other countries have very different results on social and environmental factors for the same level of current competitiveness and must begin work today to get on the path to creating not just growing but also low-carbon and inclusive economies."
 
 
 ```{r}
 ca_join <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
 ```
-
-# Deciding what variables to include for cluster analysis 
-- economic growth
-- GCI pillars
 
 
 # Correlation plot
@@ -82,38 +55,7 @@ Things that stand out from the correlation plot:
 * slight correlation between renewable energy growth and gdp annual growth
 * growth per annum 08-18 is not correlated to growth in 19 - indicating there are countries which are either ramping up or ramping down renewables recently
 
-```{r}
-ca_join %>%
-  ggplot +
-  aes(x = ggi_index, y = renewable_cons_prop) +
-  geom_point() +
-  geom_text(aes(label = country_code))
-```
 
-```{r}
-ca_join %>%
-  ggplot +
-  aes(x = rene_gen_growth_08_18, y = (ren_gen_growth_19)) +
-  geom_point(aes(colour = country_code == "GBR")) +
-  geom_text(aes(label = country_code), check_overlap = TRUE) +
-  geom_abline(intercept = 0, slope = 1) +
-  ylim(c(0, 1.1)) +
-  theme(legend.position = "none")
-
-```
-Pakistan and Saudi reduced growth in renewables in 19
-Venezuela and Vietnam are ramping up 
-
-
-```{r}
-ca_join %>%
-  ggplot +
-  aes(x = gci_overall, y = gsci_score) +
-  geom_point() +
-  geom_text(aes(label = country_code)) +
-  geom_abline(intercept = 0, slope = 1, col = "red")
-
-```
 
 ```{r}
 ca_join %>%
@@ -131,7 +73,12 @@ ca_join %>%
   
 ```
 
-# Data preparation for clustering
+Decided not to include gdp into clustering, but will just use the gsci index 
+
+
+# Cluster Analysis 
+
+## Data preparation for clustering
 
 ```{r}
 ca_join %>%
@@ -142,10 +89,9 @@ ca_join %>%
 
 
 ```{r}
-## Scale data and drop rows containing NAs
+## Scale data 
 ca <- ca_join %>%
-  mutate(across(is.numeric, ~as.numeric(scale(.))))
-
+  mutate(across(where(is.numeric), ~as.numeric(scale(.))))
 
 ```
 
@@ -173,12 +119,16 @@ fviz_nbclust(ca_fviz, kmeans, method = "wss", nstart = 25)
 
 ```
 
-Select 3 as the optimal value of k
+Select 2 as the optimal number of cluster
+
 
 ## Perform Kmeans clustering
 ```{r}
 pillars_clust <- kmeans(ca_fviz, centers = 2)
 ```
+
+
+### Model output
 
 ```{r}
 tidy(pillars_clust)
@@ -187,27 +137,18 @@ tidy(pillars_clust)
 ```{r}
 # augment clusters onto data to explore other variables
 ca_to_plot <- augment(pillars_clust, ca)
-
-
-ca_to_plot %>%
-  ggplot() +
-  aes(y = overall_gsci, x = gdp_growth_decade, colour = .cluster) +
-  geom_jitter(alpha = 0.6, width = 0.3) +
-     scale_colour_viridis_d(option = "plasma", end = .9) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  geom_text(aes(label = country_code), check_overlap = T)
-
-
 ```
 
 
 ```{r}
 
 # obtain a table of countries and the clusters
-ca_clusters <- ca_to_plot %>%
+ca_clusters <-
+  ca_to_plot %>%
   select(country_code, .cluster) %>%
   distinct()
+
+write_csv(ca_clusters, here("clean_data/clusters.csv"))
 
 # obtain a sf object of the world
 world <- ne_countries(scale = "small", returnclass = "sf")
@@ -217,7 +158,8 @@ cluster_map <- world %>%
   full_join(ca_clusters, by = c("brk_a3" = "country_code"))
 
 #plot clusters on world map
-map <- cluster_map %>%
+#map <- 
+cluster_map %>%
 ggplot() +
   geom_sf(aes(fill = .cluster), size = 0.1, col = "black") +
   theme_void()+
@@ -231,33 +173,14 @@ ggplot() +
 #  labs(title = "Countries Grouped According to Global Sustainable Competitiveness") +
   theme(plot.title = element_text(color="grey40", size=15, face = "bold"))
 
-ggsave(here("plot_images/cluster_map.png"), map)
+#ggsave(here("plot_images/cluster_map.png"), map)
 
 
 ```
 
-
-
-
+# Pillar Scores for each cluster
 
 ```{r}
-ca_to_plot <- augment(pillars_clust, ca) %>%
-    pivot_longer(cols = c(starts_with("gsci_"), gdp_per_capita_us),
-               names_to = "pillar",
-               values_to = "pillar_value")
-
-  ggplot(ca_to_plot) +
-  aes(x = overall_gsci, y = pillar_value, colour = .cluster) +
-  geom_point() +
-  facet_wrap(~pillar) +
-  scale_colour_viridis_d(option = "viridis", end = .8)
-
-
-```
-
-
-```{r}
-
 ridge_plot <-  ca_join %>%
   left_join(ca_clusters, by = "country_code") %>%
   select(-gsci_score) %>% 
@@ -274,28 +197,22 @@ ridge_plot <-  ca_join %>%
                         alpha = 0.6, 
                         scale = 0.95, 
                         rel_min_height = .01) +
-    scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
-    scale_color_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
+    # scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
+    # scale_color_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
     theme_ridges(center_axis_labels = TRUE) +
   labs(x = "Score") +
   scale_y_discrete(labels = c("Governance", "Intellectual\nCapital", 
                               "Natural Capital", "Resource\nIntensity", "Social Capital")) +
   scale_x_continuous(breaks = c(seq(10, 80, by = 10))) +
     theme(
-    # remove panel grids and ticks
-  #  panel.grid.major.y = element_line(size = 0.5, colour = "black"),
-   # panel.grid.major.x = element_blank(),
-  #  panel.grid.minor = element_blank(),
-  #  panel.border = element_blank(),
     axis.title.y = element_blank(),
     axis.text.x = element_text(face = "bold"),
-  #  legend.position = "none",
     plot.title = element_text(face = "bold"),
     axis.text.y = element_text(face = "bold", hjust = 1),
     plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
   )
 
-ggsave(here("plot_images/cluster_ridge.png"), ridge_plot, height = 6)
+# ggsave(here("plot_images/cluster_ridge.png"), ridge_plot, height = 6)
 ```
 
 The two groups of countries are as such:
@@ -308,10 +225,6 @@ Natural capital and resource intensity showed little difference between the two
 
 
 
-
-Results of the clustering:
-
-Two groups are
 
 ```{r}
 ca_to_plot <- augment(pillars_clust, ca) %>%
@@ -328,36 +241,6 @@ ca_to_plot <- augment(pillars_clust, ca) %>%
      scale_colour_viridis_d(option = "viridis", end = .8)
 ```
 
-Analysis indicates:
 
-Countries seem to be stratified accross all pillars, though there are some anomalies. The data is perhaps not best suited to clustering, however the groupings can be used for comparisons.
-
-The scores within each pillar appear to be correlated, and there appears to be correlation between 
-
-In terms of growth 
-
-
-
-```{r}
-ca_join_plot <- ca_join %>%
-  pivot_longer(cols = starts_with("p_"),
-               names_to = "pillar",
-               values_to = "pillar_value")  
-
-ca_join_plot %>%
-  ggplot() +
-  aes(x = pillar, y = pillar_value, colour = cut(gdp_growth_annual, c(-Inf, 0, 3, 5, Inf))) +
-  geom_jitter(alpha = 0.6, width = 0.3) +
-     scale_colour_viridis_d(option = "plasma", end = .9) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  geom_point(data = subset(ca_join_plot, country_code == "GBR"), 
-             aes(x = pillar, 
-                 y =  pillar_value), colour = "black")
-
-
-
-```
 
 

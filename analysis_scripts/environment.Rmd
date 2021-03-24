@@ -186,7 +186,108 @@ ggsave(here("plot_images/enviro_lollipop.png"), enviro_lolipop, height = 5, widt
 
 ```
 
+
 ```{r}
+uk_nat_cap <- enviro %>%
+  filter(indicator == "nat_cap_score",
+#         country_code %in% top_country_codes) %>%
+          country_code == "GBR") %>%
+  # add country names
+  mutate(country_code = countrycode(country_code, "iso3c", "country.name"),
+         # reorder countries as factors
+         country_code = fct_reorder(country_code, value)) %>%
+  ggplot() +
+  aes(x = country_code, y = value, colour = country_code == "United Kingdom") +
+  # add lines from country to value
+  geom_segment( aes(x= country_code, xend= country_code, y=value, yend = 0), 
+                size = 2, alpha = 0.8) +
+  # add greyed out line
+  geom_segment( aes(x= country_code, xend= country_code, y=100, yend = value), 
+                size = 2, alpha = 0.4,
+                colour = "grey40") +
+  # add points
+  geom_point( size=4, alpha=1) +
+  # add value
+  geom_text(aes(label = round(value)), colour = "black", size =  3, vjust = -1, fontface = "bold") +
+  geom_abline(slope = 0, intercept = 100, col = "#E04059", size = 0.8) +
+  theme_light() +
+  theme(
+    # remove panel grids and ticks
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  ) +
+  scale_x_reordered() +
+  scale_y_continuous(breaks = c(0, 50,100), 
+                     labels = c("0", "GSCI Natural Capital Score", "100"), 
+                     limits = c(0,100)
+                     ) +
+  scale_color_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "Natural Capital Score",
+       subtitle = "Global Sustainability Competitiveness Index 2018")
+
+ggsave(here("plot_images/uk_nat_cap.png"), uk_nat_cap, width = 6, height = 2.5)
 
 ```
 
+```{r}
+uk_renewables <- enviro %>%
+  filter(indicator == "renewable_cons_prop",
+#         country_code %in% top_country_codes) %>%
+          country_code == "GBR") %>%
+  # add country names
+  mutate(country_code = countrycode(country_code, "iso3c", "country.name"),
+         # reorder countries as factors
+         country_code = fct_reorder(country_code, value),
+         value = value*100) %>%
+  ggplot() +
+  aes(x = country_code, y = value, colour = country_code == "United Kingdom") +
+  # add lines from country to value
+  geom_segment( aes(x= country_code, xend= country_code, y=value, yend = 0), 
+                size = 2, alpha = 0.8) +
+  # add greyed out line
+  geom_segment( aes(x= country_code, xend= country_code, y=100, yend = value), 
+                size = 2, alpha = 0.4,
+                colour = "grey40") +
+  # add points
+  geom_point( size=4, alpha=1) +
+  # add value
+  geom_text(aes(label = paste0(round(value), " %")), colour = "black", size =  3, vjust = -1, fontface = "bold") +
+  geom_abline(slope = 0, intercept = 100, col = "#E04059", size = 0.8) +
+  theme_light() +
+  theme(
+    # remove panel grids and ticks
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  ) +
+  scale_x_reordered() +
+  scale_y_continuous(breaks = c(0, 50,100), 
+                     labels = c("0", "Renewable Energy Consumption", "100%"), 
+                     limits = c(0,100)
+                     ) +
+  scale_color_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip() +
+  labs(x = "",
+       y = "",
+       title = "Renewable Energy Consumption",
+       subtitle = "BP 2018")
+
+ggsave(here("plot_images/uk_renewables.png"), uk_renewables, width = 6, height = 2.5)
+
+```

@@ -117,7 +117,7 @@ top_countries <- read_csv("clean_data/top_countries.csv")
 gci_top_10_countries <- top_countries %>% pull (country_code)
 
 gsci <- gsci %>%
-  select(country_code, starts_with("gsci"))
+  select(country_code, starts_with("gsci"), gci_overall)
 
 
 # set seed to ensure label orders stay in the same order
@@ -141,6 +141,7 @@ max_min <- data.frame(c(100, 0),
                       c(100, 0), 
                       c(100, 0), 
                       c(100, 0), 
+                      c(100, 0),
                       c(100, 0))
 
 names(max_min) <- names(see_radar)
@@ -188,27 +189,41 @@ gsci_rank <- gsci %>%
   png(file_name)
   
   # subset radar data to select a country
-  radar <- see_radar[c("Max", "Min", country), ]
+  radar <- see_radar[c("Max", "Min", country), ] %>%
+    select( gsci_nat_cap_score,
+            gsci_res_intense_score,
+            gsci_soc_cap_score,gsci_governance_score,
+            gsci_intellect_cap_score,gci_overall) %>%
+    rename(
+      "Natural Capital" = gsci_nat_cap_score,
+      "Resource\nEfficiency" = gsci_res_intense_score,
+      "Social\nCapital" = gsci_soc_cap_score,
+      "Governance" = gsci_governance_score,
+      "Intellectual\nCapital" = gsci_intellect_cap_score,
+      "GCI" = gci_overall
+    )
+  
   
   # set plot margins
-# par(mar=c(1,2,1,2)) # 'bottom', 'left', 'top', 'right'.
+ par(mar=c(1,2,1,2)) # 'bottom', 'left', 'top', 'right'.
  # par(oma = c(0,0,0,0))
   # draw plot
   radarchart(radar, 
              title = paste0(country_label," (", gsci_rank, ")"),
              cex.main = 1.5,
              # axis labels
-             vlabels = c("Natural Capital", 
-                         "Resource\nEfficiency", 
-                         "Social\nCapital", 
-                         "Intellectual\nCapital", 
-                         "Governance"),
+             # vlabels = c("Natural Capital", 
+             #             "Resource\nEfficiency", 
+             #             "Social\nCapital", 
+             #             "Intellectual\nCapital", 
+             #             "Governance", 
+             #             "GCI"),
              # line type for web
              cglty = 1, 
              # web line colours
              cglcol = "grey",
              # font size magnification
-             vlcex = 1.3,
+             vlcex = 1.1,
              # data points
              pty = 20,
              # colour of data

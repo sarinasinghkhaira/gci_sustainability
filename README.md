@@ -1,7 +1,7 @@
 # Analsysis of social equity & environmental sustainability on the backdrop of economic competitiveness
 
 ### Analysis Questions
-This [report]( ) contains an analysis of the following questions:
+This [report](https://github.com/sarinasinghkhaira/gci_sustainability/blob/main/presentation/gci_slides.pdf) contains an analysis of the following questions:
 
 * Which countries are excelling in creating sustainable & productive economies?
 * How does the UK compare to these countries?

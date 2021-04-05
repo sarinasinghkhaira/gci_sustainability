@@ -19,7 +19,6 @@ library(extrafont)
 ```
 
 
-
 ```{r include = FALSE}
 bump_theme <- function() {
 
@@ -82,6 +81,43 @@ gci_rankings_top_10 <- gci_rankings %>%
   select(country, year, gci_rank)
 
 ```
+
+```{r}
+library(ggbump)
+library(ggflags)
+data <- gci_rankings_top_10 %>%
+  # mutate(country = countrycode(country, origin = "country.name", destination = "iso2c")) %>%
+    filter(year %in% c(2010:2018)) 
+
+data %>% 
+  ggplot(aes(year, gci_rank, group = country, colour = country, fill = country)) +
+  geom_bump(aes(smooth = 20), size = 1.5, lineend = "round", alpha = 0.4) +
+  geom_bump(data = data %>% filter(country == "United Kingdom"), 
+            colour = "#d81159", size = 1.5, lineend = "round", linejoin = "bevel") +
+#  geom_point(alpha = 0.4, size = 4) +
+  scale_y_reverse(breaks = 1:10) +
+# scale_colour_manual(values = mycolors) +
+  scale_color_viridis_d(direction = -1, option = "plasma") +
+  theme_minimal() +
+  bump_theme() +
+# add labels for 2010 rankings  
+  geom_text(data = data %>% filter(year == 2010), 
+            aes(label = paste(gci_rank, country), x = 0.5), 
+            hjust = 1, colour = "grey40", fontface = "bold", size = 3) +
+# add labels for 2018 rankings  
+  geom_text(data = data %>% filter(year == 2018), 
+            aes(label = paste(gci_rank, country), x = 9.5), 
+            hjust = 0, colour = "grey40", fontface = "bold", size = 3) +
+  scale_x_discrete(breaks = 2010:2018, expand = c(.28, .45)) +
+  ggtitle("Country Rankings of Global Competitiveness Index") +
+  ylim(c(12, 0))
+```
+
+
+
+
+
+
 
 ```{r echo = FALSE}
 gci_rankings_top_10 %>%

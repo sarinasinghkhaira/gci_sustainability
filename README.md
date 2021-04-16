@@ -1,4 +1,4 @@
-# Analsysis of social equity & environmental sustainability on the backdrop of economic competitiveness
+# Analysis of social equity & environmental sustainability on the backdrop of economic competitiveness
 
 ### Analysis Questions
 This [report](https://github.com/sarinasinghkhaira/gci_sustainability/blob/main/presentation/gci_slides.pdf) contains an analysis of the following questions:

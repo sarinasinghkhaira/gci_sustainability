@@ -1,0 +1,149 @@
+---
+title: "Final Project Documentation"
+output: html_document
+---
+
+# General
+
+### Data Requirements
+
+The data you use in the project has to meet the following criteria:
+
+- At least 5,000 rows
+- At least 3 sources of data
+- Must contain text data, numeric data and dates
+
+## Context
+
+#### Business intelligence and data-driven decision making
+
+What insights can the business/organisation gain from your analysis and how will your analysis help the business/organisation make better decisions? 
+
+This analysis aims to identify those economies which are heading in the right direction - growing, productive economies which are environmentally and socially sustainable. 
+
+#### Domain knowledge and the business context
+
+Briefly describe the business/organisation and where your analysis fits within its aims/activity. 
+
+The World Economic Forum is an international organization with no commercial interest, the Forum provides a platform for leaders from all stakeholder groups from around the world – business, government and civil society – to come together.
+
+## Data
+
+#### Internal and external data sources
+
+Briefly describe your data sources and which were internal (provided by the organisation) and external (not sourced from the organisation's data)
+
+#### Types of data
+
+What kind of data did you work with? E.g. categorical and numerical data and their sub-types.
+
+The data collected/generated on each country was mostly numeric and was organised into world rankings. 
+
+
+#### Data formats
+
+What format did your data come in? E.g. all downloaded flat files (CSV) or any data from APIs, scraping etc.
+
+All of the data used in this analysis was downloaded from the sources in either csv or excel format. 
+
+#### Data quality and bias
+
+Briefly describe the quality of the data and whether you have any reasons to suggest the data is biased e.g. only data from a specific demographic even though a broader demographic would be of interest to the organisation.
+
+
+## Ethics
+
+#### Ethical issues in data sourcing and extraction
+
+Do you have any ethical concerns regarding the sourcing and extraction of your data? 
+Ultimately the metrics included in this analysis are hard to quantify. The methods to work out global competitiveness and the global sustainability competitiveness are very complex. The standardised methodology across all countries helps to reduce bias however the methods may favour certain kinds of economies. The weighting placed on the various factors to calculate the indexes will also play a part in this. 
+
+#### Ethical implications of business requirements
+
+Are there any ethical implications of the business requirements?
+
+## Analysis
+
+#### Stages in the data analysis process
+
+What were the main stages in your data analysis process?
+1) Planning - gathering data sources
+2) Cleaning and data preparation - combining several datasets and extracting the necessary information
+3) Data exploration through visualisation
+4) Clustering analysis
+5) Interpretation of results 
+6) Presentation
+
+#### Tools for data analysis
+
+What were the main tools you used for your analysis?
+
+I used RStudio to conduct the analysis and PowerPoint to present the main findings of the analysis. I used excalidraw in the planning stages. The R packages I used were: 
+
+General data manipulation & cleaning:
+* tidyverse
+* janitor
+* here
+* snakecase
+* tidytext
+* countrycode
+
+Data visualisation - predominantly ggplot2, as well as:
+* RColorBrewer
+* extrafont
+* ggbump
+* ggridges
+
+Clustering analysis:
+* broom
+* corrr
+* factoextra
+
+Spatial plotting: 
+* rworldmap
+* rnaturalearth
+* sf
+
+
+
+#### Descriptive, diagnostic, predictive and prescriptive analysis
+
+Please report under which of the below categories your analysis falls **and why** (can be more than one) 
+
+::: {.emphasis}
+**Descriptive Analytics** tells you what happened in the past.
+
+**Diagnostic Analytics** helps you understand why something happened in the past.
+
+**Predictive Analytics** predicts what is most likely to happen in the future.
+
+**Prescriptive Analytics** recommends actions you can take to affect those outcomes.
+:::
+
+
+# PDA Outcomes
+
+### Working with Data (J4Y6 35)
+
+#### 1. Plan an analysis to provide business intelligence
+
+-   1.1 Business intelligence and data-driven decision making
+-   1.2 Domain knowledge and the business context
+-   1.4 Internal and external data sources
+-   1.5 Data quality
+-   1.6 Stages in the data analysis process
+-   1.7 Descriptive, diagnostic, predictive and prescriptive analysis
+-   1.9 Ethical implications of business requirements
+-   1.10 Tools for data analysis
+
+#### 2. Extract data from a variety of sources
+
+-   2.1 Tools for querying data sources
+-   2.2 Types of data (categorical and numerical data and their sub-types)
+-   2.3 Data formats
+-   2.6 Data quality including data bias
+-   2.7 Ethical issues in data sourcing and extraction
+
+#### 4. Analyse data to provide business intelligence
+
+-   4.7 Role of domain knowledge in interpreting analyses

@@ -116,9 +116,6 @@ data %>%
 
 
 
-
-
-
 ```{r echo = FALSE}
 gci_rankings_top_10 %>%
   filter(year %in% c(2010:2018)) %>%

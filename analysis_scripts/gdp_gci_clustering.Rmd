@@ -48,10 +48,10 @@ Things that stand out from the correlation plot:
 
 * countries with higher gdp have higher emissions
 * stronger correlation of gdp to gci than gsci
-* gdp correlated to happiness score
-* gdp correlated slightly with gender gap index
-* gdp is negatively correlated to gini - high income countries = poor distributino wealth
-* some cor between renewable consumption as a proportion and ggi_index
+* gdp positively correlated with happiness score
+* gdp positively correlated slightly with gender gap index - richer countries tend to have a smaller gender gap
+* gdp is negatively correlated to gini - higher income countries have a poorer distribution of wealth
+* some correlation between renewable consumption as a proportion and ggi_index
 * slight correlation between renewable energy growth and gdp annual growth
 * growth per annum 08-18 is not correlated to growth in 19 - indicating there are countries which are either ramping up or ramping down renewables recently
 

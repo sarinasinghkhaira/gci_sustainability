@@ -23,12 +23,19 @@ soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
 top_countries <- read_csv(here("clean_data/top_countries.csv"))
 ```
 
+
+
+```{r}
+
+```
+
+
 ```{r}
 # select out social equity measures
 social_equity <- soc_eco_env %>% 
   filter(category == "se") %>%
   select(-category)
-#
+
   # add a column for ranking of each metric
 social_equity_rankings <- social_equity %>%
   # as the gini index is reverse (0 is equality, 1 is in equality, reverse it first)
@@ -298,4 +305,5 @@ soc_eq_hist %>%
   scale_x_continuous(breaks = c(2010:2018)) +
   theme_light() 
 ```
+
 

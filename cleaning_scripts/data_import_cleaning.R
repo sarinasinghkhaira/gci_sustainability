@@ -74,47 +74,45 @@ gci_pillars <- gci_data_clean %>%
 
 #https://databank.worldbank.org/source/world-development-indicators
 # read in data
-wdi_data <- read_csv("~/Downloads/WDIData.csv") %>%
+wdi_data <- read_csv("raw_data/WDIData.csv") %>%
   clean_names()
 
 # convert NAs and remove years before 2009
 wdi_data <- wdi_data %>% 
   na_if(., "..") %>%
-  select(-c(x1960:x2009))
+  select(-c(x1960_yr1960:x2008_yr2008))
 
 # pivot years into one column and select relevant countries
 wdi_data_clean <- wdi_data %>%
-  mutate(indicator_name = str_to_lower(indicator_name)) %>%
+  mutate(series_name = str_to_lower(series_name)) %>%
   pivot_longer( cols = starts_with("x20"),
                 names_to = "year",
                 names_prefix = "x") %>%
   filter(!is.na(value),
          country_code %in% gci_country_iso) %>%
-  select(country_name, country_code, year, value, indicator_name)
+  mutate(year = str_extract(year, "^[0-9]{4}")) %>%
+  select(country_name, country_code, year, value, series_name)
 
-# filter social equity indicators 
+# filter social equity indicators
 social_equity <- wdi_data_clean %>%
-  filter(str_detect(indicator_name, "gini") | 
-           str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)")) %>%
-  group_by(country_name, country_code, indicator_name) %>%
+  filter(str_detect(series_name, "gini")) %>%
+  group_by(country_name, country_code, series_name) %>%
   filter(year == max(year)) %>%
-  mutate(indicator_name = case_when(
-    str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)") ~ "unemployment_pctg",
-    str_detect(indicator_name, "gini") ~ "gini_index"
+  mutate(series_name = case_when(
+    str_detect(series_name, "gini") ~ "gini_index"
   )) %>%
   ungroup() %>%
   select(-year, -country_name) %>%
-  pivot_wider(names_from = indicator_name,
+  pivot_wider(names_from = series_name,
               values_from = value)
 
 # export social equity historic data
 social_equity_historic <- wdi_data_clean %>%
-  filter(str_detect(indicator_name, "gini")) %>%
-  mutate(indicator_name = case_when(
-    str_detect(indicator_name, "unemployment, total \\(% of total labor force\\) \\(modeled ilo estimate\\)") ~ "unemployment_pctg",
-    str_detect(indicator_name, "gini") ~ "gini_index"),
+  filter(str_detect(series_name, "gini")) %>%
+  mutate(series_name = case_when(
+    str_detect(series_name, "gini") ~ "gini_index"),
     year = as.numeric(year)) %>%
-  pivot_wider(names_from = indicator_name,
+  pivot_wider(names_from = series_name,
               values_from = value)
 
 
@@ -357,8 +355,6 @@ write_csv(ca_join, "clean_data/gdp_gci_clustering.csv")
 
 
 # Join Evnrionmental & Social & Economic Data -----------------------------
-
-# note: how would you do this without dummmy data? 
 
 dummy_data <- tibble(
   country_code = c(NA)

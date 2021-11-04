@@ -26,11 +26,6 @@ top_countries <- read_csv(here("clean_data/top_countries.csv"))
 
 
 ```{r}
-
-```
-
-
-```{r}
 # select out social equity measures
 social_equity <- soc_eco_env %>% 
   filter(category == "se") %>%

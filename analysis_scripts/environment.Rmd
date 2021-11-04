@@ -27,7 +27,7 @@ top_countries <- read_csv(here("clean_data/top_countries.csv"))
 
 ```{r}
 
-# select out social equity measures
+# select out environmental metrics
 enviro <- soc_eco_env %>% 
   filter(category == "env") %>%
   select(-category) %>%
@@ -59,7 +59,7 @@ High = good, low = bad
 
   # add a column for ranking of each metric
 enviro_rankings <- enviro %>%
-  mutate(across(is.numeric, coalesce, 0)) %>%
+  mutate(across(where(is.numeric, coalesce, 0))) %>%
   # mutate the indicators that have a reverse scale
   mutate(value = ifelse(indicator %in% c("co2", "consumption_co2_per_capita"), value*-1, value)) %>%
   group_by(indicator) %>%
@@ -121,7 +121,8 @@ footprint_uk <- footprint %>%
   select(country_code, record, total, year) 
 
 
-footprint_plot <- footprint_uk %>%
+#footprint_plot <- 
+  footprint_uk %>%
   ggplot() +
   aes(x = year, y = total, colour = record) +
   geom_line(size = 2) +
@@ -139,7 +140,7 @@ footprint_plot <- footprint_uk %>%
         axis.title = element_text(size = 10)) +
   ggtitle("Ecological footprint & Biocapacity per capita in the United Kingdom")
 
-ggsave(here("plot_images/carbon_footprint.png"), footprint_plot, height = 5)
+#ggsave(here("plot_images/carbon_footprint.png"), footprint_plot, height = 5)
 ```
 
 ```{r}
@@ -148,7 +149,8 @@ indicator_labs <- c("CO2 Consumption per Capita", "Renewable Energy Consumption 
 names(indicator_labs) <- c("consumption_co2_per_capita", "renewable_cons_prop", "nat_cap_score")
 
 # take a look at the UK's ranking
-enviro_lolipop <- enviro_rankings %>%  
+#enviro_lolipop <- 
+enviro_rankings %>%  
   filter(country_code %in% top_country_codes,
          indicator %in% c("consumption_co2_per_capita", "renewable_cons_prop", "nat_cap_score")) %>%
   mutate(indicator = as.factor(indicator),
@@ -182,13 +184,14 @@ enviro_lolipop <- enviro_rankings %>%
     scale_colour_manual(values = c("#38A380", "#EB701C")) +
  coord_flip()
 
-ggsave(here("plot_images/enviro_lollipop.png"), enviro_lolipop, height = 5, width = 5)
+#ggsave(here("plot_images/enviro_lollipop.png"), enviro_lolipop, height = 5, width = 5)
 
 ```
 
 
 ```{r}
-uk_nat_cap <- enviro %>%
+#uk_nat_cap <- 
+enviro %>%
   filter(indicator == "nat_cap_score",
 #         country_code %in% top_country_codes) %>%
           country_code == "GBR") %>%
@@ -235,7 +238,7 @@ uk_nat_cap <- enviro %>%
        title = "Natural Capital Score",
        subtitle = "Global Sustainability Competitiveness Index 2018")
 
-ggsave(here("plot_images/uk_nat_cap.png"), uk_nat_cap, width = 6, height = 2.5)
+#ggsave(here("plot_images/uk_nat_cap.png"), uk_nat_cap, width = 6, height = 2.5)
 
 ```
 

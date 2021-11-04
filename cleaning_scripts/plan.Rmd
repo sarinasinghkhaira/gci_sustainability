@@ -1,0 +1,19 @@
+---
+title: "Plan"
+output: html_notebook
+---
+
+Please describe your plan for your analysis. Include details such as:
+
+Where you plan to get your data from?
+I plan to use the data provided from the World Bank and Solability, alongside data from Our World in Data, the World Happiness Report and BP for renewable energy reports. 
+Summarise the requirements of the project.
+The project aims to identify countries which are leading the way in regards to inclusive, environmentally responsible growing economies. 
+What parts of the data are you planning to look at?
+I will be looking at historic data over the last 10 years 
+How will you ensure your analysis can be shared appropriately when finished?
+What potential data quality issues might this data have?
+How are your data sets related to each other?
+Each data set contains data on each country and the year, so will be joined together based on these two variables. 
+How will you combine them to carry out your analysis.
+I joined them together to create historic datasets and then extracted the most recent year for comparisons and a clustering analysis. 

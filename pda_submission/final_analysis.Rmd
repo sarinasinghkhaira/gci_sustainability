@@ -1,0 +1,689 @@
+---
+title: "Final analysis"
+author: "Sarina Singh Khaira"
+date: "02/11/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r packages, include = FALSE}
+library(here)
+library(tidyverse)
+library(tidytext)
+library(RColorBrewer)
+library(countrycode)
+library(snakecase)
+library(extrafont)
+library(ggbump)
+library(broom)
+library(factoextra)
+library(rworldmap)
+library(rnaturalearth)
+library(sf)
+library(corrr)
+library(ggridges)
+
+```
+
+
+```{r read in data, include = FALSE}
+# read in data for past 10 years
+gci_rankings <- read_csv(here("clean_data/gci_rank_decade.csv"))
+
+# read in competitiveness, social and environmental metrics for most recent year for clustering analysis
+gci_soc_env <- read_csv(here("clean_data/gdp_gci_clustering.csv"))
+
+# read in global sustainable competitiveness data 
+gsci_rankings <- read_csv(here("clean_data/gsci_all.csv")) %>%
+  select(gsci_rank, gsci_score, country_code) %>%
+  rename(rank = gsci_rank,
+         score = gsci_score) %>%
+  mutate(index = "gsci")
+
+# read in social, economic and environmental indicators
+soc_eco_env <- read_csv(here("clean_data/socio_econo_enviro.csv"))
+
+#read in the top 4 GCI countries, top 4 GCI countries and UK for comparison
+
+top_countries <- read_csv(here("clean_data/top_countries.csv"))
+
+# ecological footprint data
+footprint <- read_csv(here("clean_data/carbon_footprint.csv"))
+
+
+
+```
+
+## Economic analysis (Global Competitiveness Index)
+
+#### How have global competitiveness rankings changed over time?
+
+
+```{r bump plot, include = FALSE}
+# create custom theme for bump plot 
+bump_theme <- function() {
+
+  # Colors
+  color.background = "white"
+  color.text = "grey40"
+
+  # Begin construction of chart
+  theme_bw(base_size=15) +
+
+    # Format background colors
+    theme(panel.background = element_rect(fill=color.background,
+                                          color=color.background)) +
+    theme(plot.background  = element_rect(fill=color.background,
+                                          color=color.background)) +
+    theme(panel.border     = element_rect(color=color.background)) +
+    theme(strip.background = element_rect(fill=color.background,
+                                          color=color.background)) +
+
+    # Format the grid
+    theme(panel.grid.major.y = element_blank()) +
+    theme(panel.grid.minor.y = element_blank()) +
+    theme(axis.ticks       = element_blank()) +
+
+    # Format the legend
+    theme(legend.position = "none") +
+
+    # Format title and axis labels
+    theme(plot.title       = element_text(color=color.text, size=15, face = "bold")) +
+    theme(axis.title.x     = element_blank()) +
+    theme(axis.title.y     = element_blank()) +
+    theme(axis.text.x      = element_text(size=10, vjust=0.5, hjust=0.5,
+                                          color = color.text, face = "bold")) +
+    theme(axis.text.y      = element_blank()) +
+    theme(strip.text       = element_text(face = "bold")) +
+
+    # Plot margins
+    theme(plot.margin = unit(c(0.35, 0.2, 0.3, 0.35), "cm"))
+}
+```
+
+
+
+
+For the purposes of this exploration I will include the 10 top ranking countries for GCI.
+
+```{r include = FALSE}
+# create vector of countries of interest
+gci_top_10_countries <- gci_rankings %>%
+  filter(year == 2018 & gci_rank <= 10) %>%
+  arrange(gci_rank) %>%
+  pull(country)
+
+# filter countries of interest for rank over time
+gci_rankings_top_10 <- gci_rankings %>%
+  filter(country %in% gci_top_10_countries) %>%
+  mutate(country = fct_relevel(country, gci_top_10_countries),
+         year = as.factor(year)) %>%
+  select(country, year, gci_rank)
+
+```
+
+```{r}
+data <- gci_rankings_top_10 %>%
+  # mutate(country = countrycode(country, origin = "country.name", destination = "iso2c")) %>%
+    filter(year %in% c(2010:2018)) 
+
+data %>% 
+  ggplot(aes(year, gci_rank, group = country, colour = country, fill = country)) +
+  geom_bump(aes(smooth = 20), size = 1.5, lineend = "round", alpha = 0.4) +
+  geom_bump(data = data %>% filter(country == "United Kingdom"), 
+            colour = "#d81159", size = 1.5, lineend = "round", linejoin = "bevel") +
+#  geom_point(alpha = 0.4, size = 4) +
+  scale_y_reverse(breaks = 1:10) +
+# scale_colour_manual(values = mycolors) +
+  scale_color_viridis_d(direction = -1, option = "plasma") +
+  theme_minimal() +
+  bump_theme() +
+# add labels for 2010 rankings  
+  geom_text(data = data %>% filter(year == 2010), 
+            aes(label = paste(gci_rank, country), x = 0.5), 
+            hjust = 1, colour = "grey40", fontface = "bold", size = 3) +
+# add labels for 2018 rankings  
+  geom_text(data = data %>% filter(year == 2018), 
+            aes(label = paste(gci_rank, country), x = 9.5), 
+            hjust = 0, colour = "grey40", fontface = "bold", size = 3) +
+  scale_x_discrete(breaks = 2010:2018, expand = c(.28, .45)) +
+  ggtitle("Country Rankings of Global Competitiveness Index") +
+  ylim(c(12, 0))
+```
+
+The top 10 most competitive countries in 2018 have all been in the top 12 for the last decade, indicating that there is little change in rankings for these top performing countries. Sweden has fallen from 2nd to 9th. The United Kingdom has risen from 12th place to 9th. 
+
+
+#### Do the top performing countries in terms of global competitiveness have different areas of strength and weaknesses within the calculation of the index?
+
+```{r prepare data for heatmap}
+# obtain the gci rankings since 2007 in order of gci
+gci_top_10_countries <- gci_rankings %>%
+  filter(year == 2018 & gci_rank <= 10) %>%
+  arrange(gci_rank) %>%
+  pull(country_code)
+
+gci_top_10_country_names <- countrycode(gci_top_10_countries, origin = "iso3c", destination = "country.name")
+
+# select out index values for 12 pillars
+pillars <- gci_soc_env %>%
+  # pillar values 
+  select(country_code, starts_with("p_"), gci_overall) %>%
+  # filter out countries of interest
+  filter(country_code %in% gci_top_10_countries) %>%
+  # add full country names
+  mutate(country_name = countrycode(country_code, 
+                                    origin = "iso3c", 
+                                    destination = "country.name")) %>%
+  # remove gci index total
+  select(-gci_overall) %>%
+  # pivot so that all pillar scores are in one column
+  pivot_longer(cols = -c(country_name, country_code),
+               names_to = "pillar",
+               values_to = "score") %>%
+  # modify pillar labels so that they are understandable for plot
+  mutate(pillar_labs = (str_extract(pillar, "[a-z]*$")),
+         pillar_labs = to_sentence_case(pillar_labs),
+         pillar_labs = recode(pillar_labs,
+           "Ict" = "ICT adoption",
+           "Macroeconomic" = "Macroeconomic\nstability", 
+           "Product" = "Product market", 
+           "Labour" = "Labour market", 
+           "Financial" = "Financial system", 
+           "Market" = "Market size", 
+           "Business" = "Business\ndynamism", 
+           "Innovation" = "Innovation", 
+           .default = pillar_labs
+         ))
+
+
+```
+
+
+
+```{r gci_heatmap}
+# function to replace the pillar names so that they are sequential for plot
+for (x in 1:9){
+  
+  string <- paste("_", x, "_", sep = "")
+  
+  string_replace <- paste("_0", x, "_", sep = "")
+  
+  pillars <-  pillars %>%
+  mutate(pillar = str_replace_all(pillar, string, string_replace))
+  
+}
+
+# ORder the pillars in their order for factor reordering
+pillar_order <- pillars %>%
+  arrange(pillars) %>%
+  distinct(pillar_labs) %>%
+  pull(pillar_labs)
+
+# Vector of colours of the 4 major categories of pillar
+colours <- c(rep("#e04059", 4), rep("#eb701c", 2), rep("#4f529c", 4), rep("#38a380", 2))
+
+
+# Heatmap of 12 pillars per 10 countries
+pillars %>%
+  #relevel pillars so they are plotted in order
+  mutate(pillar_labs = fct_relevel(pillar_labs, pillar_order),
+         country_name = fct_relevel(country_code, gci_top_10_countries)
+        ) %>%
+  ggplot() +
+  geom_tile(aes(y = pillar_labs, 
+                x = country_name, 
+                fill = score),
+            colour = "white", 
+            size = 0.5) +
+  # make the tiles square
+  coord_equal() +
+  # set the colour scale
+  scale_fill_distiller(palette = "Purples",  
+                       name = "Score", 
+                       direction = 1,
+                       guide = guide_colourbar(barwidth = 0.9, 
+                                               barheight = 2.5,
+                                               ticks = F,
+                                               breaks = c(60, 100),
+                                               labels = c(60, 100),
+                                               label.position = "left",
+                                               #title.position = "bottom",
+                                               title.hjust = 1,
+                                               title.vjust = 1.5)) +
+  # add lines that group the pillars together
+  # enabling environment
+  annotate(
+    geom = "line", y = c(0.6, 4.4), x = 0.3, col = colours[1], size = 2.5
+  ) +
+  # human capital
+  annotate(
+    geom = "line", y = c(4.6, 6.4), x = 0.3, col = colours[5], size = 2.5
+  ) +
+  # markets
+  annotate(
+    geom = "line", y = c(6.6, 10.4), x = 0.3, col = colours[8], size = 2.5
+  ) +
+  # innovation ecosystem
+  annotate(
+    geom = "line", y = c(10.6, 12.4), x = 0.3, col = colours[11], size = 2.5
+  ) +
+  # styling to remove all gridlines and axis
+  theme_minimal() +
+  # x axis label rotate 
+  theme(axis.text.x = element_text(angle = 45, 
+                                   #hjust = 1, # left justification
+                                   #vjust = 0.5, 
+                                   face = "bold"),
+        
+        axis.text.y = element_text(face = "bold",
+                                   colour = colours),
+        axis.title = element_text(size = 10,
+                                  face = "bold"),
+        axis.ticks = element_blank(),
+        
+        legend.title = element_text(size = 10, 
+                                    face = "bold", 
+                                    color = "grey40"),
+        
+        legend.text = element_text(face = "bold", 
+                                   color = "grey40")) +
+#  scale_x_discrete(position = "top") +
+    labs(x = "Country Code", 
+       y = NULL, 
+       title = "GCI Pillar Scores")
+
+```
+
+Generally speaking countries tend to have high scores for health, macroeconomic stability, infrastucture and financial systems. When looking at the UK in particular it seems to be lagging behind other nations in ICT adoption and product market. The GCI does not contain a weighting towards environmental sustainability or social equity - both of which have been highlighted by the WEF as characteristics that will aid economies to continue to grow into the future.
+
+I will now look at each of these in turn, before considering the global sustainability index which takes into account a wide variety of indicators. The countries selected for the following comparisons feature the top 4 countries in both global competitiveness and the top4 for global sustainable competitiveness, and the UK. 
+
+| GCI         | GSCI    |
+|-------------|---------|
+| USA         | Sweden  |
+| Singapore   | Denmark |
+| Germany     | Iceland |
+| Switzerland | Finland |
+
+## Social equity analysis
+
+I have chosen to look at the gender gap index (a proxy for gender inequality) and the Gini index which is a proxy for the distribution of wealth within society. I have also chosen to look at the 'World Happiness Index' which comes from a global survey. 
+
+```{r social equity metrics}
+# select out social equity measures
+social_equity <- soc_eco_env %>% 
+  filter(category == "se") %>%
+  select(-category)
+
+  # add a column for ranking of each metric
+social_equity_rankings <- social_equity %>%
+  # as the gini index is reverse (0 is equality, 1 is in equality, reverse it first)
+  mutate(value = ifelse(indicator == "gini_index", value*-1, value)) %>%
+  group_by(indicator) %>%
+  mutate(rank = rank(desc(value)))
+
+# extract vector of country_codes
+top_country_codes <- top_countries %>% pull(country_code)
+
+# set facet grid laels
+indicator_labs <- c("Global Gender Gap Index Rank", "Wealth Inequality Rank (Gini Index)", "World Happiness Report Rank")
+names(indicator_labs) <- c("ggi_index", "gini_index", "happiness_score")
+
+# take a look at the UK's ranking
+#soc_eq_lolipop <- 
+  social_equity_rankings %>%
+  filter(country_code %in% top_country_codes,
+         !str_detect(indicator, "_rank"),
+         indicator != "unemployment_pctg") %>%
+  mutate(indicator = as.factor(indicator),
+         country_name = countrycode(country_code, "iso3c", "country.name"),
+         country_code_order = reorder_within(country_name, -rank, indicator)) %>%
+  ggplot() +
+  aes(x = country_code_order, y = rank, colour = country_code == "GBR") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=rank, yend = -1), col = "grey64") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=100, yend = rank)) +
+  geom_point( size=4, alpha=0.6) +
+  geom_text(aes(label = round(rank)), colour = "black", size =  3, fontface = "bold") +
+  theme_light() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    strip.background = element_rect(color = "black",
+                                    fill = "white",
+                                    linetype = "blank"),
+    strip.text.x = element_text(face = "bold", colour = "grey40", size = 10),
+    legend.position = "none"
+  ) +
+  facet_wrap(~indicator, 
+             nrow = 3, 
+             scales = "free_y",
+             labeller = labeller(indicator = indicator_labs)) +
+  scale_x_reordered() +
+    scale_colour_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip()
+
+```
+
+
+## Environmental analysis 
+
+The metrics used here are the consumption of carbon dioxide per capita, the natural capital score as derived from the global sustainable competitiveness index as well as the proportion of renewable energy consumption per country. 
+
+```{r}
+# select out environmental metrics
+enviro <- soc_eco_env %>% 
+  filter(category == "env") %>%
+  select(-category) %>%
+  filter(!indicator %in% c( "total_consumption",  "nat_cap_rank", "gsci_rank", "gsci_score"))
+
+
+
+
+# extract vector of country_codes
+top_country_codes <- top_countries %>% pull(country_code)
+
+
+  # add a column for ranking of each metric
+enviro_rankings <- enviro %>%
+  mutate(across(is.numeric, coalesce, 0)) %>%
+  # mutate the indicators that have a reverse scale
+  mutate(value = ifelse(indicator %in% c("co2", "consumption_co2_per_capita"), value*-1, value)) %>%
+  group_by(indicator) %>%
+  mutate(rank = rank(desc(value)))
+
+
+# set facet grid laels
+indicator_labs <- c("CO2 Consumption per Capita", "Renewable Energy Consumption Proportion", "Natural Capital GSCI Score")
+names(indicator_labs) <- c("consumption_co2_per_capita", "renewable_cons_prop", "nat_cap_score")
+
+# take a look at the UK's ranking
+#enviro_lolipop <- 
+enviro_rankings %>%  
+  filter(country_code %in% top_country_codes,
+         indicator %in% c("consumption_co2_per_capita", "renewable_cons_prop", "nat_cap_score")) %>%
+  mutate(indicator = as.factor(indicator),
+         country_name = countrycode(country_code, "iso3c", "country.name"),
+         country_code_order = reorder_within(country_name, -rank, indicator)) %>%
+  ggplot() +
+  aes(x = country_code_order, y = rank, colour = country_code == "GBR") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=rank, yend = -1), col = "grey64") +
+  geom_segment( aes(x= country_code_order, xend= country_code_order, y=154, yend = rank)) +
+  geom_point( size=4, alpha=0.6) +
+  geom_text(aes(label = round(rank)), colour = "black", size =  3, fontface = "bold") +
+  theme_light() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title = element_blank(),
+    strip.background = element_rect(color = "black",
+                                    fill = "white",
+                                    linetype = "blank"),
+    strip.text.x = element_text(face = "bold", colour = "grey40", size = 10),
+    legend.position = "none"
+  ) +
+  facet_wrap(~indicator, 
+             nrow = 3, 
+             scales = "free",
+             labeller = labeller(indicator = indicator_labs)) +
+  scale_x_reordered() +
+    scale_colour_manual(values = c("#38A380", "#EB701C")) +
+ coord_flip()
+
+```
+
+
+
+
+```{r}
+footprint %>%
+  filter(record %in% c("BiocapPerCap", "EFConsPerCap")) %>%
+  ggplot() +
+  aes(x = year, y = total, group = record, colour = record) +
+  geom_line()+
+  facet_wrap(~country_code, scales = "free_y") +
+    theme_light() +
+  theme(
+    panel.grid.major = element_blank(),
+   panel.grid.minor = element_blank(),
+    strip.background = element_rect(color = "black",
+                                    fill = "white",
+                                    linetype = "blank"),
+    strip.text.x = element_text(face = "bold", colour = "grey40", size = 10),
+    text = element_text(face = "bold", colour = "grey40", size = 10)
+  ) +
+
+  scale_color_manual(labels = c("BioCapacity\n(resources)", "Ecological Footprint\n(demand)"), values = c("#03635D", "#E04059")) +
+  xlim(c(1960, 2020)) +
+  labs(color = "Metric", x = "Year", y = "Global Hectares Per Capita", title = "Ecological Footprint & BioCapacity per country over time")
+  
+
+```
+
+I have also chosen to look at the BioCapacity and Ecological footprint and how this has changed over the past half century. BioCapacity indicates the carbon stores that a country may have - essentially it represents a carbon sink. The Ecological footprint represents the carbon consumption. The goal is always to have a higher BioCapacity than Ecological footprint. Out of the top countries only 2 achieve this - Finland and Sweden - though in both cases the BioCapacity seems to be declining. The UK shows a similar pattern to Switzerland, USA, Germany and Denmark with a seemingly narrowing gap - a sign of positive change. It is important to note that every plot has a different scale on the y axis.  Singapore however demonstrates a worrying trend with its BioCapacity incredibly low and stagnant, with a rapidly increasing Ecological footprint.
+
+# Relationships between metrics
+
+I have produced a correlation matrix to see what relationships may exist between any two indicators/indexes used in this analysis. 
+
+```{r}
+gci_soc_env %>%
+  select(-c(country_code, 
+            starts_with("p_"), 
+            ends_with("rank"), 
+            gdp_per_capita_growth_annual, 
+            gdp_growth_annual,
+            total_consumption,
+            gdp_ppp)) %>%
+  correlate() %>%
+  rearrange() %>%
+  shave() %>%
+  rplot(shape = 15) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+The correlation plot show that:
+
+* countries with higher GDP have higher emissions
+* stronger correlation of GDP to GCI than GSCI
+* GDP positively correlated with happiness score
+* GDP positively correlated slightly with gender gap index - richer countries tend to have a smaller gender gap
+* GDP is negatively correlated to the Gini index - higher income countries have a poorer distribution of wealth
+* there is some correlation between renewable consumption as a proportion and the gender gap index
+* slight correlation exists between renewable energy growth and GDP annual growth
+
+
+## Relationship between GDP and GSCI pillars
+```{r}
+gci_soc_env %>%
+    pivot_longer(cols = starts_with("gsci_"),
+               names_to = "pillar",
+               values_to = "pillar_value") %>%
+  ggplot() +
+  aes(x = gdp_per_capita_ppp, y = pillar_value, colour = country_code == "GBR") +
+  geom_point(alpha = 0.8) +
+  #geom_text(aes(label = country_code), check_overlap = TRUE) +
+  facet_wrap(~pillar) +
+  theme_bw() +
+  scale_colour_viridis_d(option = "viridis", end = .8)+
+  theme(legend.position = "none")
+  
+```
+The pattern between GDP and the individual pillar scores for the GSCI seem to be most noticeable in the intellectual capital score and governance score. Natural capital and resource intensity do not seem to vary with GDP indicating that these aspects may level out developing nations with developed nations. 
+I decided not to include GDP into the clustering analysis, but will just use the GSCI Index pillars.  
+
+
+# Cluster Analysis 
+
+## Data preparation for clustering
+
+```{r}
+# are there NA values to be dropped?
+gci_soc_env %>%
+  select(starts_with("gsci")) %>%
+  is.na() %>%
+  colSums()
+```
+
+
+
+```{r}
+## Scale data 
+ca <- gci_soc_env %>%
+  mutate(across(where(is.numeric), ~as.numeric(scale(.))))
+
+```
+
+
+## Choosing K and validating clustering
+
+
+```{r}
+ca <- ca %>%
+  drop_na(c(starts_with("gsci"))) %>%
+  rename(overall_gsci = gsci_score)
+
+# select the relevant columns to include in clustering analysis 
+ca_fviz <- select(ca, starts_with("gsci")) 
+
+# silhouette analysis
+fviz_nbclust(ca_fviz, kmeans, method = "silhouette", nstart = 25)
+
+```
+
+```{r}
+# gap stat analysis
+fviz_nbclust(ca_fviz, kmeans, method = "gap_stat") 
+```
+
+```{r}
+#within cluster sums of squares analysis
+fviz_nbclust(ca_fviz, kmeans, method = "wss", nstart = 25)
+
+```
+
+Select 2 as the optimal number of clusters
+
+
+## Perform Kmeans clustering
+```{r}
+pillars_clust <- kmeans(ca_fviz, centers = 2)
+```
+
+
+### Model output
+
+```{r}
+tidy(pillars_clust)
+```
+
+```{r}
+# augment clusters onto data to explore other variables
+ca_to_plot <- augment(pillars_clust, ca)
+```
+
+
+```{r}
+
+# obtain a table of countries and the clusters
+ca_clusters <-
+  ca_to_plot %>%
+  select(country_code, .cluster) %>%
+  distinct()
+
+#write_csv(ca_clusters, here("clean_data/clusters.csv"))
+
+# obtain a sf object of the world
+world <- ne_countries(scale = "small", returnclass = "sf")
+
+# join clusters to world map
+cluster_map <- world %>%
+  full_join(ca_clusters, by = c("brk_a3" = "country_code"))
+
+#plot clusters on world map
+#map <- 
+cluster_map %>%
+ggplot() +
+  geom_sf(aes(fill = .cluster), size = 0.1, col = "black") +
+  theme_void()+
+  # change the projections mercator: 3395; robinson: 54030
+  # find them all here: https://semba-blog.netlify.app/01/26/2020/world-map-and-map-projections/
+  coord_sf(crs = 54030) +  
+  scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster", breaks = c(1,2)) +
+  theme(legend.position = c(0.2,0.4),
+        legend.title = element_text(size = 8, face = "bold"),
+          legend.key.size = unit(0.5, "cm")) +
+#  labs(title = "Countries Grouped According to Global Sustainable Competitiveness") +
+  theme(plot.title = element_text(color="grey40", size=15, face = "bold"))
+
+
+
+```
+
+# Pillar Scores for each cluster
+
+```{r}
+ridge_plot <-  gci_soc_env %>%
+  left_join(ca_clusters, by = "country_code") %>%
+  select(-gsci_score) %>% 
+    pivot_longer(cols = c(starts_with("gsci_")),
+               names_to = "pillar",
+               values_to = "pillar_value") %>%
+  ggplot() +
+  aes(x = pillar_value, 
+      y = pillar, 
+      color = .cluster, 
+      fill = .cluster) +
+    stat_density_ridges(quantile_lines = TRUE, 
+                        quantiles = 2, 
+                        alpha = 0.6, 
+                        scale = 0.95, 
+                        rel_min_height = .01) +
+    # scale_fill_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
+    # scale_color_manual(values = c("#E04059", "#4F529C"), name = "Cluster") +
+    theme_ridges(center_axis_labels = TRUE) +
+  labs(x = "Score") +
+  scale_y_discrete(labels = c("Governance", "Intellectual\nCapital", 
+                              "Natural Capital", "Resource\nIntensity", "Social Capital")) +
+  scale_x_continuous(breaks = c(seq(10, 80, by = 10))) +
+    theme(
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(face = "bold"),
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", hjust = 1),
+    plot.margin = unit(c(1.5, 1, 1.5, 1), "cm") #top, right, bottom, left
+  )
+
+```
+
+The two clusters of countries are as such:
+
+Cluster 1 - low governance, intellectual capital and social capital scores.
+
+Cluster 2 -  higher governance, intellectual capital and social capital. 
+
+Natural capital and resource intensity showed little difference between the two clusters - indicating that there is less of a global pattern here, and that they are on a case by case basis.
+
+# Conclusions & Key insights
+
+* According to the WEF, the UK ranks as the 8th most competitive economy in the world 
+* Falls to 15th when sustainability & social equity are considered (GSCI Ranking)
+* Social capital requires improvement - including gender gap & distribution of wealth
+* The UK is making progress towards becoming more environmentally sustainable which should
+improve its natural capital rankings over time, it is currently in 139th place.
+* Sweden, Finland, Denmark & Switzerland appear to be on the trajectory of productive, low- carbon & inclusive economies
+
+
+
+

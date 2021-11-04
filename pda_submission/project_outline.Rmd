@@ -5,74 +5,114 @@ output: html_document
 
 # General
 
-### Data Requirements
-
-The data you use in the project has to meet the following criteria:
-
-- At least 5,000 rows
-- At least 3 sources of data
-- Must contain text data, numeric data and dates
-
 ## Context
 
 #### Business intelligence and data-driven decision making
 
-What insights can the business/organisation gain from your analysis and how will your analysis help the business/organisation make better decisions? 
-
-This analysis aims to identify those economies which are heading in the right direction - growing, productive economies which are environmentally and socially sustainable. 
+This analysis aims to identify those economies which are heading in the right direction - growing, productive economies which are environmentally and socially sustainable. According to the WEH productivity as a whole has been stagnant but it highlights that for future economic growth to be sustainable, there needs to be an emphasis on environmental sustainability and social equity. In highlighting the economies that are doing well in this they can provide an example for other leading economies to follow suit. While the GCI provides an economic snapshot of how well a country is doing, it does not take into account environmental or social aspects which will be crucial to its success in the future. By looking at environmental, social and governance (ESG) metrics, this analysis will help to show which of these areas require improvement. 
 
 #### Domain knowledge and the business context
 
-Briefly describe the business/organisation and where your analysis fits within its aims/activity. 
-
-The World Economic Forum is an international organization with no commercial interest, the Forum provides a platform for leaders from all stakeholder groups from around the world – business, government and civil society – to come together.
+The World Economic Forum is an international organization with no commercial interest, the Forum provides a platform for leaders from all stakeholder groups from around the world – business, government and civil society – to come together. There has recently been a global push for sustainable practices within business. Sustainable finance is the practice of taking environmental, social, and governance considerations into account when making investment decisions. The WEF estimates that today investment funds that use ESG have more than $50 trillion in capital and are growing fast. In 2021 it is holding the Sustainable Development Impact Summit to bring together global leaders to look into how to revitalise economies in a sustainable manner. This analysis will help to highlight the countries that are leading by example, and show the gaps which require attention from currently wealthy nations. 
 
 ## Data
 
 #### Internal and external data sources
 
-Briefly describe your data sources and which were internal (provided by the organisation) and external (not sourced from the organisation's data)
+##### Data provided by the organisation:
+
+
+[World Bank World Develeopment Indicators](https://databank.worldbank.org/source/world-development-indicators)
+<br>
+ - Global Competitiveness Index   
+ - Global Gender Gap Index  
+ - Gini Index (measure of distribution of wealth)
+
+[SolAbility](https://solability.com/the-global-sustainable-competitiveness-index/the-index)
+<br>
+ - Global Sustainability Competitiveness Index
+
+##### Data sourced independently:
+
+
+[Our World in Data](https://ourworldindata.org/co2-and-other-greenhouse-gas-emissions)  
+ - CO2 & Emissions Data  
+
+[Global Footprint Network](https://data.footprintnetwork.org/)  
+ - Ecological Footprint & BioCapacity
+
+[BP](https://www.bp.com/en/global/corporate/energy-economics/statistical-review-of-world-energy/downloads.html)  
+ - Renewable Energy Consumption & Generation
+
+[Sustainable Development Solutions Network](https://www.kaggle.com/unsdsn/world-happiness)  
+ - World Happiness Score
+
 
 #### Types of data
 
-What kind of data did you work with? E.g. categorical and numerical data and their sub-types.
-
 The data collected/generated on each country was mostly numeric and was organised into world rankings. 
+The metrics used in this analysis are:
+
+ - Global Competitiveness Index - ascending index between 0 - 100 made up of scores from 10 pillars
+ - Global Sustainability Competitiveness Index - ascending index between 0 - 100 made up of scores from 6 pillars
+ - Global Gender Gap Index  - index between 0 - 1 with 0 indicating inequality and 1 indicating equality
+ - Gini Index (measure of distribution of wealth) - ranging from 0 - 100 with 0 representing perfect equality and 1 representing perfect inequality
+ - CO2 - tonnes of CO2
+ - C02 consumption per capita
+ - Ecological Footprint & BioCapacity
+ - Renewable Energy Consumption 
+ - Renewable Energy Generation
+ - Renewable Energy as a proportion of total energy production
+ - World Happiness Score - global ranking of 'happiness' from the Gallup World Poll
 
 
 #### Data formats
 
-What format did your data come in? E.g. all downloaded flat files (CSV) or any data from APIs, scraping etc.
-
-All of the data used in this analysis was downloaded from the sources in either csv or excel format. 
+All of the data used in this analysis was downloaded/provided in either csv or Excel format. 
 
 #### Data quality and bias
 
-Briefly describe the quality of the data and whether you have any reasons to suggest the data is biased e.g. only data from a specific demographic even though a broader demographic would be of interest to the organisation.
+The data provided by the World Bank is subject to high quality standards as outlined [here](https://datahelpdesk.worldbank.org/knowledgebase/articles/906534-data-quality-and-effectiveness). 
 
+The Global Sustainable Competitveness Index is calculated largely using World Bank, UN agency, OECD and IEA data, however in the full [methodology](file:///Users/sarinasinghkhaira/Downloads/The-Global-Sustainable-Competitiveness-Index-Report-2020-1.pdf) it states that it also utilised raw data in its calculations without verifying the data. The overall effects of this should be minimal due to the majority of the data being sourced from reliable sources. Where data was missing, instead of assigning zero values, values were imputed based on regional averages, income and development levels as well as geographical features and climatic averages were applicable.  
+
+The various methodologies used in producing indexes and proxies for hard to quantify metrics introduces bias into this data - particularly regarding social equity metrics and the competitiveness indexes which is discussed below. 
 
 ## Ethics
 
 #### Ethical issues in data sourcing and extraction
 
-Do you have any ethical concerns regarding the sourcing and extraction of your data? 
-Ultimately the metrics included in this analysis are hard to quantify. The methods to work out global competitiveness and the global sustainability competitiveness are very complex. The standardised methodology across all countries helps to reduce bias however the methods may favour certain kinds of economies. The weighting placed on the various factors to calculate the indexes will also play a part in this. 
+Ultimately a lot of the metrics included in this analysis are hard to quantify - such as gender inequality, distribution of wealth, happiness - so these metrics can only be taken as a proxy. The methods to work out global competitiveness and the global sustainability competitiveness are very complex and take into account a wide range of metrics. The standardised methodology across all countries helps to reduce bias however the methods may favour certain kinds of economies. The weighting placed on the various factors to calculate the indexes will also play a part in this. 
 
 #### Ethical implications of business requirements
 
-Are there any ethical implications of the business requirements?
+On the whole as this is a descriptive analysis it aims to identify high performing countries - however this is subjective and can lead to bias towards capitalist countries centered around US/Westernised measures of success. The concept of the Global Competitiveness Index itself has drawn criticism surrounding its bias towards neoliberalist economies, placing economies such as the US and the UK unrealistically higher than they should be. In using the Global Sustainable Competitiveness Index alongside I believe this provides another angle to the rankings.
 
 ## Analysis
 
 #### Stages in the data analysis process
 
-What were the main stages in your data analysis process?
-1) Planning - gathering data sources
-2) Cleaning and data preparation - combining several datasets and extracting the necessary information
-3) Data exploration through visualisation
-4) Clustering analysis
-5) Interpretation of results 
-6) Presentation
+
+##### 1) Planning
+After the analysis was planned, I then gathered the relevant data sources from the various sources.
+
+
+##### 2) Cleaning and data preparation - combining several datasets and extracting the necessary information
+The country names needed to be cleaned, and useful indicators extracted and joined together. 
+
+
+##### 3) Data exploration through visualisation
+I produced a correlation matrix and created several visualisations to observe relationships between indicators, global trends and trends over time.
+
+
+##### 4) Clustering analysis
+I performed k-means clustering on the global sustainability competitiveness index data which scores each country on 5 pillars to see if countries could be grouped according to high scores in one area, and low scores in another area. 
+
+
+##### 5) Interpretation of results & presentation
+
+
+<br>
 
 #### Tools for data analysis
 
@@ -81,69 +121,40 @@ What were the main tools you used for your analysis?
 I used RStudio to conduct the analysis and PowerPoint to present the main findings of the analysis. I used excalidraw in the planning stages. The R packages I used were: 
 
 General data manipulation & cleaning:
-* tidyverse
-* janitor
-* here
-* snakecase
-* tidytext
-* countrycode
+   `tidyverse`
+   `janitor`
+   `here`
+   `snakecase`
+   `tidytext`
+   `countrycode`
 
-Data visualisation - predominantly ggplot2, as well as:
-* RColorBrewer
-* extrafont
-* ggbump
-* ggridges
+Data visualisation - predominantly `ggplot2`, as well as:
+   `RColorBrewer`
+   `extrafont`
+   `ggbump`
+   `ggridges`
 
 Clustering analysis:
-* broom
-* corrr
-* factoextra
+   `broom`
+   `corrr`
+   `factoextra`
 
 Spatial plotting: 
-* rworldmap
-* rnaturalearth
-* sf
+   `rworldmap`
+   `rnaturalearth`
+   `sf`
 
 
+<br>
 
 #### Descriptive, diagnostic, predictive and prescriptive analysis
 
-Please report under which of the below categories your analysis falls **and why** (can be more than one) 
 
 ::: {.emphasis}
-**Descriptive Analytics** tells you what happened in the past.
+**Descriptive Analytics** :
+This analysis largely falls under descriptive analysis - it looks at relationships between economic growth and responsible practices and visualises this. 
 
-**Diagnostic Analytics** helps you understand why something happened in the past.
-
-**Predictive Analytics** predicts what is most likely to happen in the future.
-
-**Prescriptive Analytics** recommends actions you can take to affect those outcomes.
 :::
 
 
-# PDA Outcomes
 
-### Working with Data (J4Y6 35)
-
-#### 1. Plan an analysis to provide business intelligence
-
--   1.1 Business intelligence and data-driven decision making
--   1.2 Domain knowledge and the business context
--   1.4 Internal and external data sources
--   1.5 Data quality
--   1.6 Stages in the data analysis process
--   1.7 Descriptive, diagnostic, predictive and prescriptive analysis
--   1.9 Ethical implications of business requirements
--   1.10 Tools for data analysis
-
-#### 2. Extract data from a variety of sources
-
--   2.1 Tools for querying data sources
--   2.2 Types of data (categorical and numerical data and their sub-types)
--   2.3 Data formats
--   2.6 Data quality including data bias
--   2.7 Ethical issues in data sourcing and extraction
-
-#### 4. Analyse data to provide business intelligence
-
--   4.7 Role of domain knowledge in interpreting analyses
